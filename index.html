@@ -78,6 +78,7 @@
     let startTime, driveInterval, maxSpeed = 0;
     let pathCoords = [], pathLine, map;
     let driveLogs = [], sessionStartCoords = null, sessionEndCoords = null;
+    let totalDistanceAllTrips = 0;
 
     function initMap() {
       map = L.map("map").setView([25.276987, 55.296249], 13);
@@ -100,15 +101,15 @@
     }
 
     function updateOdometer() {
-      const base = parseFloat(document.getElementById("currentKm").value || 0);
-      document.getElementById("baseKm").textContent = base.toFixed(2);
-      document.getElementById("addedKm").textContent = totalDistance.toFixed(2);
-      document.getElementById("totalKm").textContent = (base + totalDistance).toFixed(2);
+  const base = parseFloat(document.getElementById("currentKm").value || 0);
+  document.getElementById("baseKm").textContent = base.toFixed(2);
+  document.getElementById("addedKm").textContent = totalDistanceAllTrips.toFixed(2);
+  document.getElementById("totalKm").textContent = (base + totalDistanceAllTrips).toFixed(2);
 
-      const fuelStart = parseFloat(document.getElementById("fuelKm").value || 0);
-      const fuelRemaining = Math.max(fuelStart - totalDistance, 0);
-      document.getElementById("fuelLeft").textContent = fuelRemaining.toFixed(1);
-    }
+  const fuelStart = parseFloat(document.getElementById("fuelKm").value || 0);
+  const fuelRemaining = Math.max(fuelStart - totalDistanceAllTrips, 0);
+  document.getElementById("fuelLeft").textContent = fuelRemaining.toFixed(1);
+}
 
     function updateDriveTime() {
       const now = new Date();
@@ -200,24 +201,28 @@
     }
 
     function renderDriveLogs() {
-      const container = document.getElementById("driveLogs");
-      container.innerHTML = "";
-      const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-      driveLogs = logs;
+  const container = document.getElementById("driveLogs");
+  container.innerHTML = "";
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  driveLogs = logs;
+  totalDistanceAllTrips = 0;
 
-      logs.forEach((log, i) => {
-        const div = document.createElement("div");
-        div.className = "box";
-        div.innerHTML = `
-          <strong>رحلة #${i + 1}</strong><br>
-          🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
-          📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
-          ⏱️ المدة: ${log.duration}<br>
-          🚗 المسافة: ${log.distance} كم<br>
-          🚀 السرعة القصوى: ${log.maxSpeed} كم/س`;
-        container.appendChild(div);
-      });
-    }
+  logs.forEach((log, i) => {
+    totalDistanceAllTrips += parseFloat(log.distance);
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      <strong>رحلة #${i + 1}</strong><br>
+      🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
+      📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
+      ⏱️ المدة: ${log.duration}<br>
+      🚗 المسافة: ${log.distance} كم<br>
+      🚀 السرعة القصوى: ${log.maxSpeed} كم/س`;
+    container.appendChild(div);
+  });
+
+  updateOdometer(); // ← تحديث العداد مباشرة بعد جمع البيانات
+}
 
     function generateRSS() {
       const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
