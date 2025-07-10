@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <title>ميزاني - صيانة السيارة</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- CSS -->
   <style>
     body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
     header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
@@ -14,8 +16,14 @@
     .ok { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; margin-top: 10px; }
     button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
     button:hover { background: #083463; }
+    #map { height: 300px; border-radius: 10px; }
   </style>
+
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
+
 <body>
 
   <header>
@@ -45,6 +53,11 @@
       <h3>🔔 تنبيه الصيانة</h3>
       <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
     </div>
+
+    <div class="box">
+      <h3>🗺️ خريطة الحركة</h3>
+      <div id="map"></div>
+    </div>
   </section>
 
   <script>
@@ -58,14 +71,38 @@
     const distanceEl = document.getElementById("distance");
     const statusEl = document.getElementById("status");
 
+    // Leaflet Map
+    let map;
+    let pathLine;
+    let pathCoords = [];
+
+    function initMap() {
+      map = L.map('map').setView([25.276987, 55.296249], 13); // دبي مبدئيًا
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+    }
+
+    function updateMap(lat, lon) {
+      const newPoint = [lat, lon];
+      pathCoords.push(newPoint);
+      if (!pathLine) {
+        pathLine = L.polyline(pathCoords, { color: 'blue' }).addTo(map);
+      } else {
+        pathLine.setLatLngs(pathCoords);
+      }
+      map.setView(newPoint, 15);
+    }
+
     function haversine(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth radius in km
+      const R = 6371; // km
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2)**2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2)**2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) *
+                Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
@@ -75,20 +112,21 @@
         return;
       }
 
+      initMap();
       startTime = new Date();
-      driveInterval = setInterval(updateDriveTime, 1000); // تحديث الوقت كل ثانية
+      driveInterval = setInterval(updateDriveTime, 1000);
 
       watchId = navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude, speed } = pos.coords;
 
-        // السرعة
+        updateMap(latitude, longitude);
+
         const speedEl = document.getElementById("speed");
         if (speed !== null && !isNaN(speed)) {
-          const kmh = (speed * 3.6).toFixed(1); // m/s to km/h
+          const kmh = (speed * 3.6).toFixed(1);
           speedEl.textContent = kmh;
         }
 
-        // المسافة
         if (lastPosition) {
           const dist = haversine(
             lastPosition.latitude,
@@ -96,7 +134,7 @@
             latitude,
             longitude
           );
-          if (dist > 0.01) { // تجاهل الاهتزاز البسيط
+          if (dist > 0.01) {
             totalDistance += dist;
             distanceEl.textContent = totalDistance.toFixed(2);
             checkServiceAlert();
@@ -128,7 +166,6 @@
       const lastDate = new Date(document.getElementById("lastServiceDate").value);
       const now = new Date();
       const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
-
       const kmLimit = currentKm + 5000;
       const timeLimit = 90;
       const totalKm = currentKm + totalDistance;
