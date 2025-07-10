@@ -78,63 +78,7 @@
     <button onclick="clearDriveLogs()">🗑️ حذف جميع بيانات الرحلات</button>
   </div>
 
-  <div class="box">
-    <h3>🚘 بيانات السيارة</h3>
-    <select id="carSelect" onchange="localStorage.setItem('currentCar', this.value)">
-      <option value="رنج روفر">رنج روفر</option>
-      <option value="كامري">كامري</option>
-    </select>
-    <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية"
-           onchange="localStorage.setItem('currentKm', this.value)">
-    <input type="number" id="fuelRange" placeholder="المسافة الممكنة بالبترول (كم)"
-           onchange="localStorage.setItem('fuelRange', this.value)">
-    <input type="date" id="lastServiceDate">
-  </div>
 
-  <!-- تتبع القيادة والموقع وخريطة -->
-  <div class="box">
-    <h3>🛰️ تتبع القيادة</h3>
-    <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
-    <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span></p>
-    <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
-    <button onclick="startTracking()">ابدأ القيادة</button>
-    <button onclick="stopTracking()">أوقف التتبع</button>
-    <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
-  </div>
-
-  <!-- تنبيه الصيانة -->
-  <div class="box">
-    <h3>🔔 تنبيه الصيانة</h3>
-    <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
-  </div>
-
-  <!-- الخريطة -->
-  <div class="box">
-    <h3>🗺️ خريطة الحركة</h3>
-    <div id="map"></div>
-  </div>
-
-  <!-- عداد الكيلومترات -->
-  <div class="box">
-    <h3>🧮 عداد الكيلومترات</h3>
-    <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
-    <p>المسافة المقطوعة: <span id="addedKm">0</span> كم</p>
-    <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
-  </div>
-
-  <!-- عداد البترول -->
-  <div class="box">
-    <h3>⛽ عداد البترول</h3>
-    <p>🔋 المسافة المتبقية بالبترول: <strong><span id="fuelLeft">0</span> كم</strong></p>
-  </div>
-
-  <!-- بيانات الرحلات -->
-  <div class="box">
-    <h3>📊 بيانات القيادة السابقة</h3>
-    <div id="driveLogs"></div>
-    <button onclick="generateRSS()">📥 تحديث RSS</button>
-    <button onclick="clearDriveLogs()">🗑️ مسح كل بيانات الرحلات</button>
-  </div>
 </section>
 
 <script>
