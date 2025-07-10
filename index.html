@@ -8,7 +8,7 @@
     body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
     header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
     section { padding: 20px; }
-    input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
     .box { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .alert { background: #fce4e4; color: #b00020; padding: 10px; border-radius: 6px; margin-top: 10px; }
     .ok { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; margin-top: 10px; }
@@ -29,10 +29,7 @@
 <section>
   <div class="box">
     <h3>🚘 بيانات السيارة</h3>
-    <select id="carType">
-      <option value="رنج روفر">🚙 رنج روفر</option>
-      <option value="كامري">🚗 كامري</option>
-    </select>
+    <input type="text" id="carType" placeholder="نوع السيارة">
     <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية">
     <input type="number" id="fuelRange" placeholder="المسافة الممكنة بالبترول (كم)">
     <input type="date" id="lastServiceDate">
@@ -40,7 +37,6 @@
 
   <div class="box">
     <h3>🛰️ تتبع القيادة</h3>
-    <p>🚘 نوع السيارة الجاري تتبعها: <strong id="activeCar">—</strong></p>
     <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
     <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span></p>
     <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
@@ -62,87 +58,28 @@
   <div class="box">
     <h3>🧮 عداد الكيلومترات</h3>
     <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
-    <p>المسافة المقطوعة: <span id="addedKm">0</span> كم</p>
+    <p>المسافة المقطوعة (جميع الرحلات): <span id="addedKm">0</span> كم</p>
     <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
   </div>
 
   <div class="box">
     <h3>⛽ عداد البترول</h3>
-    <p>المسافة الممكنة بالبترول: <span id="fuelLeft">0</span> كم</p>
+    <p>المسافة الممكنة بالبترول عند آخر تعبئة: <span id="fuelStart">0</span> كم</p>
+    <p><strong>🚨 المسافة المتبقية قبل نفاد البترول: <span id="fuelLeft">0</span> كم</strong></p>
   </div>
 
   <div class="box">
     <h3>📊 بيانات القيادة السابقة</h3>
     <div id="driveLogs"></div>
-    <button onclick="generateRSS()">📥 توليد ملف RSS</button>
-    <button onclick="clearDriveLogs()">🗑️ حذف جميع بيانات الرحلات</button>
-  </div>
-
-  <div class="box">
-    <h3>🚘 بيانات السيارة</h3>
-    <select id="carSelect" onchange="localStorage.setItem('currentCar', this.value)">
-      <option value="رنج روفر">رنج روفر</option>
-      <option value="كامري">كامري</option>
-    </select>
-    <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية"
-           onchange="localStorage.setItem('currentKm', this.value)">
-    <input type="number" id="fuelRange" placeholder="المسافة الممكنة بالبترول (كم)"
-           onchange="localStorage.setItem('fuelRange', this.value)">
-    <input type="date" id="lastServiceDate">
-  </div>
-
-  <!-- تتبع القيادة والموقع وخريطة -->
-  <div class="box">
-    <h3>🛰️ تتبع القيادة</h3>
-    <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
-    <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span></p>
-    <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
-    <button onclick="startTracking()">ابدأ القيادة</button>
-    <button onclick="stopTracking()">أوقف التتبع</button>
-    <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
-  </div>
-
-  <!-- تنبيه الصيانة -->
-  <div class="box">
-    <h3>🔔 تنبيه الصيانة</h3>
-    <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
-  </div>
-
-  <!-- الخريطة -->
-  <div class="box">
-    <h3>🗺️ خريطة الحركة</h3>
-    <div id="map"></div>
-  </div>
-
-  <!-- عداد الكيلومترات -->
-  <div class="box">
-    <h3>🧮 عداد الكيلومترات</h3>
-    <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
-    <p>المسافة المقطوعة: <span id="addedKm">0</span> كم</p>
-    <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
-  </div>
-
-  <!-- عداد البترول -->
-  <div class="box">
-    <h3>⛽ عداد البترول</h3>
-    <p>🔋 المسافة المتبقية بالبترول: <strong><span id="fuelLeft">0</span> كم</strong></p>
-  </div>
-
-  <!-- بيانات الرحلات -->
-  <div class="box">
-    <h3>📊 بيانات القيادة السابقة</h3>
-    <div id="driveLogs"></div>
-    <button onclick="generateRSS()">📥 تحديث RSS</button>
-    <button onclick="clearDriveLogs()">🗑️ مسح كل بيانات الرحلات</button>
+    <button onclick="resetAllData()" style="background-color: #c0392b;">🗑️ مسح جميع الرحلات</button>
   </div>
 </section>
 
 <script>
-let watchId, lastPosition = null, totalDistance = 0;
+    let watchId, lastPosition = null, totalDistance = 0, totalDistanceAllTrips = 0;
 let startTime, driveInterval, maxSpeed = 0;
 let pathCoords = [], pathLine, map;
 let driveLogs = [], sessionStartCoords = null, sessionEndCoords = null;
-let totalDistanceAllTrips = 0;
 
 function initMap() {
   map = L.map('map').setView([25.276987, 55.296249], 13);
@@ -174,38 +111,31 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 function updateOdometer() {
-  const base = parseFloat(localStorage.getItem("currentKm") || "0");
-  const total = base + totalDistanceAllTrips + totalDistance;
+  const base = parseFloat(localStorage.getItem("currentKm") || 0);
   document.getElementById("baseKm").textContent = base.toFixed(2);
-  document.getElementById("addedKm").textContent = (totalDistanceAllTrips + totalDistance).toFixed(2);
-  document.getElementById("totalKm").textContent = total.toFixed(2);
+  document.getElementById("addedKm").textContent = totalDistanceAllTrips.toFixed(2);
+  document.getElementById("totalKm").textContent = (base + totalDistanceAllTrips).toFixed(2);
 }
 
-function updateFuelMeter() {
-  const fuelBase = parseFloat(localStorage.getItem("fuelRange") || "0");
-  const fuelLeft = fuelBase - (totalDistanceAllTrips + totalDistance);
-  document.getElementById("fuelLeft").textContent = (fuelLeft > 0 ? fuelLeft : 0).toFixed(2);
+function updateFuelCounter() {
+  const fuelStart = parseFloat(localStorage.getItem("fuelRange") || 0);
+  const fuelLeft = fuelStart - totalDistanceAllTrips;
+  document.getElementById("fuelStart").textContent = fuelStart.toFixed(2);
+  document.getElementById("fuelLeft").textContent = fuelLeft.toFixed(2);
 }
 
 function startTracking() {
-  const selectedCar = document.getElementById("carSelect").value;
-  document.getElementById("activeCar").textContent = selectedCar;
-
-  const currentKm = parseFloat(document.getElementById("currentKm").value || "0");
-  const fuelRange = parseFloat(document.getElementById("fuelRange").value || "0");
-
-  localStorage.setItem("currentCar", selectedCar);
-  localStorage.setItem("currentKm", currentKm.toString());
-  localStorage.setItem("fuelRange", fuelRange.toString());
-
   totalDistance = 0; maxSpeed = 0; pathCoords = []; pathLine = null;
   sessionStartCoords = null; sessionEndCoords = null;
   document.getElementById("distance").textContent = "0";
   document.getElementById("speed").textContent = "0";
   document.getElementById("driveTime").textContent = "0";
-  updateOdometer();
-  updateFuelMeter();
+  updateOdometer(); updateFuelCounter();
   initMap();
+
+  localStorage.setItem("currentKm", document.getElementById("currentKm").value);
+  localStorage.setItem("fuelRange", document.getElementById("fuelRange").value);
+  localStorage.setItem("lastServiceDate", document.getElementById("lastServiceDate").value);
 
   startTime = new Date();
   driveInterval = setInterval(updateDriveTime, 1000);
@@ -227,11 +157,7 @@ function startTracking() {
       const dist = haversine(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
       if (dist > 0.01) {
         totalDistance += dist;
-        totalDistanceAllTrips += dist;
         document.getElementById("distance").textContent = totalDistance.toFixed(2);
-        updateOdometer();
-        updateFuelMeter();
-        checkServiceAlert();
       }
     }
 
@@ -256,7 +182,6 @@ function stopTracking() {
   const formattedDuration = `${hours} س ${minutes} د ${seconds} ث`;
 
   const log = {
-    car: document.getElementById("carSelect").value,
     start: sessionStartCoords,
     end: sessionEndCoords,
     distance: totalDistance.toFixed(2),
@@ -264,11 +189,15 @@ function stopTracking() {
     maxSpeed: maxSpeed.toFixed(1)
   };
 
-  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-  logs.push(log);
-  localStorage.setItem("driveLogs", JSON.stringify(logs));
+  driveLogs.push(log);
+  totalDistanceAllTrips += totalDistance;
+  localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
+  localStorage.setItem("totalDistanceAllTrips", totalDistanceAllTrips);
   generateRSS();
   renderDriveLogs();
+  updateOdometer();
+  updateFuelCounter();
+  checkServiceAlert();
 }
 
 function updateDriveTime() {
@@ -282,6 +211,24 @@ function updateDriveTime() {
   document.getElementById("driveTime").textContent = formatted;
 }
 
+function checkServiceAlert() {
+  const currentKm = parseFloat(localStorage.getItem("currentKm") || 0);
+  const lastDate = new Date(localStorage.getItem("lastServiceDate"));
+  const now = new Date();
+  const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+  const kmLimit = currentKm + 5000;
+  const totalKm = currentKm + totalDistanceAllTrips;
+
+  const alertBox = document.getElementById("alertBox");
+  if (totalKm >= kmLimit || diffDays >= 90) {
+    alertBox.className = "alert";
+    alertBox.innerHTML = `⚠️ اقترب موعد الصيانة!<br>المسافة: ${totalKm.toFixed(2)} كم<br>الأيام منذ آخر صيانة: ${diffDays} يومًا`;
+  } else {
+    alertBox.className = "ok";
+    alertBox.innerHTML = `🚗 الصيانة غير مطلوبة حاليًا<br>المسافة: ${totalKm.toFixed(2)} كم<br>الأيام منذ آخر صيانة: ${diffDays} يومًا`;
+  }
+}
+
 function generateRSS() {
   const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
   let rssContent = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n`;
@@ -289,11 +236,9 @@ function generateRSS() {
 
   logs.forEach((log, index) => {
     const pubDate = new Date().toUTCString();
-    rssContent += `<item>\n`;
-    rssContent += `<title>رحلة ${index + 1} - ${log.car}</title>\n`;
+    rssContent += `<item>\n<title>رحلة ${index + 1}</title>\n`;
     rssContent += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration} - السرعة القصوى: ${log.maxSpeed} كم/س</description>\n`;
-    rssContent += `<pubDate>${pubDate}</pubDate>\n`;
-    rssContent += `</item>\n`;
+    rssContent += `<pubDate>${pubDate}</pubDate>\n</item>\n`;
   });
 
   rssContent += `</channel>\n</rss>`;
@@ -304,16 +249,13 @@ function renderDriveLogs() {
   const container = document.getElementById("driveLogs");
   container.innerHTML = "";
   const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-  totalDistanceAllTrips = logs.reduce((sum, log) => sum + parseFloat(log.distance), 0);
-  updateOdometer();
-  updateFuelMeter();
+  driveLogs = logs;
 
   logs.forEach((log, index) => {
     const div = document.createElement("div");
     div.className = "box";
     div.innerHTML = `
       <strong>رحلة #${index + 1}</strong><br>
-      🚘 السيارة: ${log.car}<br>
       🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
       📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
       ⏱️ المدة: ${log.duration}<br>
@@ -323,25 +265,31 @@ function renderDriveLogs() {
     container.appendChild(div);
   });
 }
-
-function clearDriveLogs() {
-  if (confirm("هل أنت متأكد من مسح جميع بيانات الرحلات؟")) {
+  function resetAllData() {
+  if (confirm("هل أنت متأكد أنك تريد حذف جميع البيانات؟ لا يمكن التراجع.")) {
     localStorage.removeItem("driveLogs");
+    localStorage.removeItem("totalDistanceAllTrips");
+    localStorage.removeItem("rssFeed");
     totalDistanceAllTrips = 0;
+    driveLogs = [];
     renderDriveLogs();
+    updateOdometer();
+    updateFuelCounter();
+    alert("تم حذف جميع بيانات الرحلات بنجاح.");
   }
 }
 
 window.onload = () => {
-  const car = localStorage.getItem("currentCar");
-  const currentKm = localStorage.getItem("currentKm");
-  const fuelRange = localStorage.getItem("fuelRange");
-
-  if (car) document.getElementById("carSelect").value = car;
-  if (currentKm) document.getElementById("currentKm").value = currentKm;
-  if (fuelRange) document.getElementById("fuelRange").value = fuelRange;
-
+  totalDistanceAllTrips = parseFloat(localStorage.getItem("totalDistanceAllTrips") || 0);
+  document.getElementById("currentKm").value = localStorage.getItem("currentKm") || "";
+  document.getElementById("fuelRange").value = localStorage.getItem("fuelRange") || "";
+  document.getElementById("lastServiceDate").value = localStorage.getItem("lastServiceDate") || "";
   renderDriveLogs();
-  generateRSS();
+  updateOdometer();
+  updateFuelCounter();
+  checkServiceAlert();
 };
 </script>
+
+</body>
+</html>
