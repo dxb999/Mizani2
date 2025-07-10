@@ -174,8 +174,9 @@ function stopTracking() {
   };
 
   driveLogs.push(log);
+  localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
+  generateRSS(); // ← توليد RSS بدون تحميل
   renderDriveLogs();
-  generateRSS(); // ← إنشاء RSS تلقائيًا
 }
 
 function updateDriveTime() {
@@ -208,10 +209,31 @@ function checkServiceAlert() {
   }
 }
 
+function generateRSS() {
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  let rssContent = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n`;
+  rssContent += `<title>بيانات القيادة - ميزاني</title>\n<link>https://example.com/</link>\n<description>خلاصات الرحلات</description>\n`;
+
+  logs.forEach((log, index) => {
+    const pubDate = new Date().toUTCString();
+    rssContent += `<item>\n`;
+    rssContent += `<title>رحلة ${index + 1}</title>\n`;
+    rssContent += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration} - السرعة القصوى: ${log.maxSpeed} كم/س</description>\n`;
+    rssContent += `<pubDate>${pubDate}</pubDate>\n`;
+    rssContent += `</item>\n`;
+  });
+
+  rssContent += `</channel>\n</rss>`;
+  localStorage.setItem("rssFeed", rssContent);
+}
+
 function renderDriveLogs() {
   const container = document.getElementById("driveLogs");
   container.innerHTML = "";
-  driveLogs.forEach((log, index) => {
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  driveLogs = logs;
+
+  logs.forEach((log, index) => {
     const div = document.createElement("div");
     div.className = "box";
     div.innerHTML = `
@@ -226,31 +248,9 @@ function renderDriveLogs() {
   });
 }
 
-function generateRSS() {
-  let rssContent = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n`;
-  rssContent += `<title>بيانات القيادة - ميزاني</title>\n<link>https://example.com/</link>\n<description>خلاصات الرحلات</description>\n`;
-
-  driveLogs.forEach((log, index) => {
-    const pubDate = new Date().toUTCString();
-    rssContent += `<item>\n`;
-    rssContent += `<title>رحلة ${index + 1}</title>\n`;
-    rssContent += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration} - السرعة القصوى: ${log.maxSpeed} كم/س</description>\n`;
-    rssContent += `<pubDate>${pubDate}</pubDate>\n`;
-    rssContent += `</item>\n`;
-  });
-
-  rssContent += `</channel>\n</rss>`;
-
-  const blob = new Blob([rssContent], { type: 'application/xml' });
-  const url = URL.createObjectURL(blob);
-
-  // تحميل الملف مباشرة
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "drive_logs.xml";
-  a.click();
-}
+// ← تحميل البيانات السابقة عند فتح الصفحة
+window.onload = () => {
+  renderDriveLogs();
+  generateRSS();
+};
 </script>
-
-</body>
-</html>
