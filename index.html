@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>ميزاني - صيانة السيارة</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <style>
     body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
     header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
@@ -17,7 +16,6 @@
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
   </style>
-
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
@@ -57,28 +55,23 @@
     </div>
 
     <div class="box">
+      <h3>🧮 عداد الكيلومترات</h3>
+      <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
+      <p>المسافة المقطوعة: <span id="addedKm">0</span> كم</p>
+      <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
+    </div>
+
+    <div class="box">
       <h3>📊 بيانات القيادة السابقة</h3>
       <div id="driveLogs"></div>
     </div>
   </section>
 
   <script>
-    let watchId;
-    let lastPosition = null;
-    let totalDistance = 0;
-    let startTime = null;
-    let driveInterval = null;
-    let maxSpeed = 0;
-    let pathCoords = [];
-    let pathLine;
-    let map;
-    let driveLogs = [];
-    let sessionStartCoords = null;
-    let sessionEndCoords = null;
-
-    const alertBox = document.getElementById("alertBox");
-    const distanceEl = document.getElementById("distance");
-    const statusEl = document.getElementById("status");
+    let watchId, lastPosition = null, totalDistance = 0;
+    let startTime, driveInterval, maxSpeed = 0;
+    let pathCoords = [], pathLine, map;
+    let driveLogs = [], sessionStartCoords = null, sessionEndCoords = null;
 
     function initMap() {
       map = L.map('map').setView([25.276987, 55.296249], 13);
@@ -109,19 +102,23 @@
       return R * c;
     }
 
+    function updateOdometer() {
+      const base = parseFloat(document.getElementById("currentKm").value || 0);
+      document.getElementById("baseKm").textContent = base.toFixed(2);
+      document.getElementById("addedKm").textContent = totalDistance.toFixed(2);
+      document.getElementById("totalKm").textContent = (base + totalDistance).toFixed(2);
+    }
+
     function startTracking() {
-      totalDistance = 0;
-      maxSpeed = 0;
-      pathCoords = [];
-      pathLine = null;
-      sessionStartCoords = null;
-      sessionEndCoords = null;
+      totalDistance = 0; maxSpeed = 0; pathCoords = []; pathLine = null;
+      sessionStartCoords = null; sessionEndCoords = null;
       document.getElementById("distance").textContent = "0";
       document.getElementById("speed").textContent = "0";
       document.getElementById("driveTime").textContent = "0";
+      updateOdometer();
 
       if (!navigator.geolocation) {
-        statusEl.textContent = "📵 الموقع غير مدعوم";
+        document.getElementById("status").textContent = "📵 الموقع غير مدعوم";
         return;
       }
 
@@ -131,43 +128,39 @@
 
       watchId = navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude, speed } = pos.coords;
-
         updateMap(latitude, longitude);
 
         const speedEl = document.getElementById("speed");
         if (speed !== null && !isNaN(speed)) {
           const kmh = (speed * 3.6).toFixed(1);
           speedEl.textContent = kmh;
-          if (speed * 3.6 > maxSpeed) {
-            maxSpeed = speed * 3.6;
-          }
+          if (speed * 3.6 > maxSpeed) maxSpeed = speed * 3.6;
         }
 
-        if (!sessionStartCoords) {
-          sessionStartCoords = [latitude, longitude];
-        }
+        if (!sessionStartCoords) sessionStartCoords = [latitude, longitude];
         sessionEndCoords = [latitude, longitude];
 
         if (lastPosition) {
           const dist = haversine(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
           if (dist > 0.01) {
             totalDistance += dist;
-            distanceEl.textContent = totalDistance.toFixed(2);
+            document.getElementById("distance").textContent = totalDistance.toFixed(2);
             checkServiceAlert();
+            updateOdometer();
           }
         }
 
         lastPosition = { latitude, longitude };
-        statusEl.textContent = "🚗 التتبع نشط...";
+        document.getElementById("status").textContent = "🚗 التتبع نشط...";
       }, err => {
-        statusEl.textContent = "📵 خطأ في تتبع الموقع";
+        document.getElementById("status").textContent = "📵 خطأ في تتبع الموقع";
       }, { enableHighAccuracy: true });
     }
 
     function stopTracking() {
       if (watchId) navigator.geolocation.clearWatch(watchId);
       if (driveInterval) clearInterval(driveInterval);
-      statusEl.textContent = "⛔ تم إيقاف التتبع";
+      document.getElementById("status").textContent = "⛔ تم إيقاف التتبع";
 
       const now = new Date();
       const elapsedMs = now - startTime;
@@ -209,6 +202,7 @@
       const timeLimit = 90;
       const totalKm = currentKm + totalDistance;
 
+      const alertBox = document.getElementById("alertBox");
       if (totalKm >= kmLimit || diffDays >= timeLimit) {
         alertBox.className = "alert";
         alertBox.innerHTML = `⚠️ اقترب موعد الصيانة!<br>المسافة: ${totalKm.toFixed(2)} كم<br>الأيام منذ آخر صيانة: ${diffDays} يومًا`;
