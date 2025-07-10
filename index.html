@@ -1,267 +1,241 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>ميزاني - صيانة السيارة</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
     header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
     section { padding: 20px; }
     input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
     .box { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .alert { background: #fce4e4; color: #b00020; padding: 10px; border-radius: 6px; margin-top: 10px; }
-    .ok { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; margin-top: 10px; }
+    .alert { background: #fce4e4; color: #b00020; padding: 10px; border-radius: 6px; }
+    .ok { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; }
     button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
-    pre { background: #eee; padding: 10px; border-radius: 6px; white-space: pre-wrap; margin-top: 10px; direction: ltr; }
   </style>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
+  <header>
+    <h1>ميزاني</h1>
+    <p>نظام تتبع وتنبيه لصيانة السيارات</p>
+  </header>
 
-<header>
-  <h1>ميزاني</h1>
-  <p>نظام تتبع وتنبيه لصيانة السيارات</p>
-</header>
+  <section>
+    <div class="box">
+      <h3>🚘 بيانات السيارة</h3>
+      <input type="text" id="carType" placeholder="نوع السيارة" />
+      <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية" />
+      <input type="date" id="lastServiceDate" />
+      <input type="number" id="fuelKm" placeholder="المسافة الممكنة بالبترول الحالي (كم)" />
+    </div>
 
-<section>
-  <div class="box">
-    <h3>🚘 بيانات السيارة</h3>
-    <input type="text" id="carType" placeholder="نوع السيارة">
-    <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية">
-    <input type="date" id="lastServiceDate">
-  </div>
+    <div class="box">
+      <h3>🛰️ تتبع القيادة</h3>
+      <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
+      <p>⏱️ الوقت: <span id="driveTime">0</span></p>
+      <p>🚀 السرعة: <span id="speed">0</span> كم/س</p>
+      <button onclick="startTracking()">ابدأ القيادة</button>
+      <button onclick="stopTracking()">أوقف التتبع</button>
+      <div id="status" class="ok">🚗 بإمكانك بدء التتبع.</div>
+    </div>
 
-  <div class="box">
-    <h3>🛰️ تتبع القيادة</h3>
-    <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
-    <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span></p>
-    <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
-    <button onclick="startTracking()">ابدأ القيادة</button>
-    <button onclick="stopTracking()">أوقف التتبع</button>
-    <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
-  </div>
+    <div class="box">
+      <h3>🔔 تنبيه الصيانة</h3>
+      <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حالياً</div>
+    </div>
 
-  <div class="box">
-    <h3>🔔 تنبيه الصيانة</h3>
-    <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
-  </div>
+    <div class="box">
+      <h3>🗺️ خريطة</h3>
+      <div id="map"></div>
+    </div>
 
-  <div class="box">
-    <h3>🗺️ خريطة الحركة</h3>
-    <div id="map"></div>
-  </div>
+    <div class="box">
+      <h3>🧮 عداد الكيلومترات</h3>
+      <p>الأساسي: <span id="baseKm">0</span> كم</p>
+      <p>المقطوع: <span id="addedKm">0</span> كم</p>
+      <p><strong>📈 الإجمالي: <span id="totalKm">0</span> كم</strong></p>
+    </div>
 
-  <div class="box">
-    <h3>🧮 عداد الكيلومترات</h3>
-    <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
-    <p>المسافة المقطوعة: <span id="addedKm">0</span> كم</p>
-    <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
-  </div>
+    <div class="box">
+      <h3>⛽ عداد البترول</h3>
+      <p>المسافة المتبقية بالبترول الحالي: <span id="fuelLeft">0</span> كم</p>
+    </div>
 
-  <div class="box">
-    <h3>📊 بيانات القيادة السابقة</h3>
-    <div id="driveLogs"></div>
-    <button onclick="showRSS()">📄 عرض ملف RSS</button>
-    <pre id="rssText" style="display:none;"></pre>
-  </div>
-</section>
+    <div class="box">
+      <h3>📊 بيانات القيادة السابقة</h3>
+      <div id="driveLogs"></div>
+      <button onclick="generateRSS()">🔄 تحديث RSS</button>
+    </div>
+  </section>
 
-<script>
-let watchId, lastPosition = null, totalDistance = 0;
-let startTime, driveInterval, maxSpeed = 0;
-let pathCoords = [], pathLine, map;
-let driveLogs = [], sessionStartCoords = null, sessionEndCoords = null;
+  <script>
+    let watchId, lastPosition = null, totalDistance = 0;
+    let startTime, driveInterval, maxSpeed = 0;
+    let pathCoords = [], pathLine, map;
+    let driveLogs = [], sessionStartCoords = null, sessionEndCoords = null;
 
-function initMap() {
-  map = L.map('map').setView([25.276987, 55.296249], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-}
-
-function updateMap(lat, lon) {
-  const newPoint = [lat, lon];
-  pathCoords.push(newPoint);
-  if (!pathLine) {
-    pathLine = L.polyline(pathCoords, { color: 'blue' }).addTo(map);
-  } else {
-    pathLine.setLatLngs(pathCoords);
-  }
-  map.setView(newPoint, 15);
-}
-
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function updateOdometer() {
-  const base = parseFloat(document.getElementById("currentKm").value || 0);
-  document.getElementById("baseKm").textContent = base.toFixed(2);
-  document.getElementById("addedKm").textContent = totalDistance.toFixed(2);
-  document.getElementById("totalKm").textContent = (base + totalDistance).toFixed(2);
-}
-
-function startTracking() {
-  totalDistance = 0; maxSpeed = 0; pathCoords = []; pathLine = null;
-  sessionStartCoords = null; sessionEndCoords = null;
-  document.getElementById("distance").textContent = "0";
-  document.getElementById("speed").textContent = "0";
-  document.getElementById("driveTime").textContent = "0";
-  updateOdometer();
-  initMap();
-
-  startTime = new Date();
-  driveInterval = setInterval(updateDriveTime, 1000);
-
-  watchId = navigator.geolocation.watchPosition(pos => {
-    const { latitude, longitude, speed } = pos.coords;
-    updateMap(latitude, longitude);
-
-    if (speed !== null && !isNaN(speed)) {
-      const kmh = (speed * 3.6).toFixed(1);
-      document.getElementById("speed").textContent = kmh;
-      if (speed * 3.6 > maxSpeed) maxSpeed = speed * 3.6;
+    function initMap() {
+      map = L.map("map").setView([25.276987, 55.296249], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+      }).addTo(map);
     }
 
-    if (!sessionStartCoords) sessionStartCoords = [latitude, longitude];
-    sessionEndCoords = [latitude, longitude];
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+          Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
 
-    if (lastPosition) {
-      const dist = haversine(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
-      if (dist > 0.01) {
-        totalDistance += dist;
-        document.getElementById("distance").textContent = totalDistance.toFixed(2);
-        checkServiceAlert();
-        updateOdometer();
+    function updateOdometer() {
+      const base = parseFloat(document.getElementById("currentKm").value || 0);
+      document.getElementById("baseKm").textContent = base.toFixed(2);
+      document.getElementById("addedKm").textContent = totalDistance.toFixed(2);
+      document.getElementById("totalKm").textContent = (base + totalDistance).toFixed(2);
+
+      const fuelStart = parseFloat(document.getElementById("fuelKm").value || 0);
+      const fuelRemaining = Math.max(fuelStart - totalDistance, 0);
+      document.getElementById("fuelLeft").textContent = fuelRemaining.toFixed(1);
+    }
+
+    function updateDriveTime() {
+      const now = new Date();
+      const seconds = Math.floor((now - startTime) / 1000);
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      document.getElementById("driveTime").textContent = `${h}س ${m}د ${s}ث`;
+    }
+
+    function updateMap(lat, lon) {
+      const point = [lat, lon];
+      pathCoords.push(point);
+      if (!pathLine) pathLine = L.polyline(pathCoords, { color: "blue" }).addTo(map);
+      else pathLine.setLatLngs(pathCoords);
+      map.setView(point, 15);
+    }
+
+    function checkServiceAlert() {
+      const currentKm = parseFloat(document.getElementById("currentKm").value || 0);
+      const lastDate = new Date(document.getElementById("lastServiceDate").value);
+      const now = new Date();
+      const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+      const kmLimit = currentKm + 5000;
+      const timeLimit = 90;
+      const totalKm = currentKm + totalDistance;
+
+      const box = document.getElementById("alertBox");
+      if (totalKm >= kmLimit || diffDays >= timeLimit) {
+        box.className = "alert";
+        box.innerHTML = `⚠️ اقترب موعد الصيانة<br>المسافة: ${totalKm.toFixed(2)} كم<br>منذ الصيانة: ${diffDays} يوم`;
+      } else {
+        box.className = "ok";
+        box.innerHTML = `🚗 الصيانة غير مطلوبة<br>المسافة: ${totalKm.toFixed(2)} كم<br>منذ الصيانة: ${diffDays} يوم`;
       }
     }
 
-    lastPosition = { latitude, longitude };
-    document.getElementById("status").textContent = "🚗 التتبع نشط...";
-  }, () => {
-    document.getElementById("status").textContent = "📵 خطأ في تتبع الموقع";
-  }, { enableHighAccuracy: true });
-}
+    function startTracking() {
+      totalDistance = 0; maxSpeed = 0; pathCoords = []; pathLine = null;
+      sessionStartCoords = null; sessionEndCoords = null;
+      initMap(); updateOdometer();
+      document.getElementById("distance").textContent = "0";
+      startTime = new Date();
+      driveInterval = setInterval(updateDriveTime, 1000);
 
-function stopTracking() {
-  if (watchId) navigator.geolocation.clearWatch(watchId);
-  if (driveInterval) clearInterval(driveInterval);
-  document.getElementById("status").textContent = "⛔ تم إيقاف التتبع";
+      watchId = navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude, speed } = pos.coords;
+        updateMap(latitude, longitude);
+        if (!sessionStartCoords) sessionStartCoords = [latitude, longitude];
+        sessionEndCoords = [latitude, longitude];
+        if (lastPosition) {
+          const dist = haversine(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
+          if (dist > 0.01) {
+            totalDistance += dist;
+            document.getElementById("distance").textContent = totalDistance.toFixed(2);
+            updateOdometer(); checkServiceAlert();
+          }
+        }
+        lastPosition = { latitude, longitude };
+        document.getElementById("speed").textContent = (speed * 3.6).toFixed(1);
+        document.getElementById("status").textContent = "🚗 التتبع نشط...";
+      }, () => {
+        document.getElementById("status").textContent = "📵 خطأ في الموقع";
+      }, { enableHighAccuracy: true });
+    }
 
-  const now = new Date();
-  const elapsedMs = now - startTime;
-  const totalSeconds = Math.floor(elapsedMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const formattedDuration = `${hours} س ${minutes} د ${seconds} ث`;
+    function stopTracking() {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      if (driveInterval) clearInterval(driveInterval);
+      document.getElementById("status").textContent = "⛔ تم إيقاف التتبع";
 
-  const log = {
-    start: sessionStartCoords,
-    end: sessionEndCoords,
-    distance: totalDistance.toFixed(2),
-    duration: formattedDuration,
-    maxSpeed: maxSpeed.toFixed(1)
-  };
+      const end = new Date();
+      const seconds = Math.floor((end - startTime) / 1000);
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
 
-  driveLogs.push(log);
-  localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
-  generateRSS();
-  renderDriveLogs();
-}
+      const log = {
+        start: sessionStartCoords,
+        end: sessionEndCoords,
+        distance: totalDistance.toFixed(2),
+        duration: `${h}س ${m}د ${s}ث`,
+        maxSpeed: maxSpeed.toFixed(1),
+      };
 
-function updateDriveTime() {
-  const now = new Date();
-  const elapsedMs = now - startTime;
-  const totalSeconds = Math.floor(elapsedMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const formatted = `${hours} س ${minutes} د ${seconds} ث`;
-  document.getElementById("driveTime").textContent = formatted;
-}
+      driveLogs.push(log);
+      localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
+      generateRSS(); renderDriveLogs();
+    }
 
-function checkServiceAlert() {
-  const currentKm = parseFloat(document.getElementById("currentKm").value || 0);
-  const lastDate = new Date(document.getElementById("lastServiceDate").value);
-  const now = new Date();
-  const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
-  const kmLimit = currentKm + 5000;
-  const timeLimit = 90;
-  const totalKm = currentKm + totalDistance;
+    function renderDriveLogs() {
+      const container = document.getElementById("driveLogs");
+      container.innerHTML = "";
+      const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+      driveLogs = logs;
 
-  const alertBox = document.getElementById("alertBox");
-  if (totalKm >= kmLimit || diffDays >= timeLimit) {
-    alertBox.className = "alert";
-    alertBox.innerHTML = `⚠️ اقترب موعد الصيانة!<br>المسافة: ${totalKm.toFixed(2)} كم<br>الأيام منذ آخر صيانة: ${diffDays} يومًا`;
-  } else {
-    alertBox.className = "ok";
-    alertBox.innerHTML = `🚗 الصيانة غير مطلوبة حاليًا<br>المسافة: ${totalKm.toFixed(2)} كم<br>الأيام منذ آخر صيانة: ${diffDays} يومًا`;
-  }
-}
+      logs.forEach((log, i) => {
+        const div = document.createElement("div");
+        div.className = "box";
+        div.innerHTML = `
+          <strong>رحلة #${i + 1}</strong><br>
+          🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
+          📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
+          ⏱️ المدة: ${log.duration}<br>
+          🚗 المسافة: ${log.distance} كم<br>
+          🚀 السرعة القصوى: ${log.maxSpeed} كم/س`;
+        container.appendChild(div);
+      });
+    }
 
-function generateRSS() {
-  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-  let rssContent = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n`;
-  rssContent += `<title>بيانات القيادة - ميزاني</title>\n<link>https://example.com/</link>\n<description>خلاصات الرحلات</description>\n`;
+    function generateRSS() {
+      const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+      let rss = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0"><channel>\n`;
+      rss += `<title>بيانات القيادة - ميزاني</title>\n<link>https://example.com/</link>\n<description>خلاصات القيادة</description>\n`;
+      logs.forEach((log, i) => {
+        rss += `<item>\n<title>رحلة ${i + 1}</title>\n`;
+        rss += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration}</description>\n`;
+        rss += `<pubDate>${new Date().toUTCString()}</pubDate>\n</item>\n`;
+      });
+      rss += `</channel></rss>`;
+      localStorage.setItem("rssFeed", rss);
+    }
 
-  logs.forEach((log, index) => {
-    const pubDate = new Date().toUTCString();
-    rssContent += `<item>\n`;
-    rssContent += `<title>رحلة ${index + 1}</title>\n`;
-    rssContent += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration} - السرعة القصوى: ${log.maxSpeed} كم/س</description>\n`;
-    rssContent += `<pubDate>${pubDate}</pubDate>\n`;
-    rssContent += `</item>\n`;
-  });
-
-  rssContent += `</channel>\n</rss>`;
-  localStorage.setItem("rssFeed", rssContent);
-}
-
-function renderDriveLogs() {
-  const container = document.getElementById("driveLogs");
-  container.innerHTML = "";
-  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-  driveLogs = logs;
-
-  logs.forEach((log, index) => {
-    const div = document.createElement("div");
-    div.className = "box";
-    div.innerHTML = `
-      <strong>رحلة #${index + 1}</strong><br>
-      🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
-      📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
-      ⏱️ المدة: ${log.duration}<br>
-      🚗 المسافة: ${log.distance} كم<br>
-      🚀 أعلى سرعة: ${log.maxSpeed} كم/س
-    `;
-    container.appendChild(div);
-  });
-}
-
-function showRSS() {
-  const content = localStorage.getItem("rssFeed");
-  const pre = document.getElementById("rssText");
-  pre.textContent = content || "🚫 لا يوجد ملف RSS محفوظ حتى الآن.";
-  pre.style.display = "block";
-}
-
-window.onload = () => {
-  renderDriveLogs();
-  generateRSS();
-};
-</script>
-
+    window.onload = () => {
+      renderDriveLogs();
+      generateRSS();
+    };
+  </script>
 </body>
 </html>
