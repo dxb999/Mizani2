@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ميزاني - صيانة السيارة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
+    header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
+    section { padding: 20px; }
+    input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    .box { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .alert { background: #fce4e4; color: #b00020; padding: 10px; border-radius: 6px; margin-top: 10px; }
+    .ok { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; margin-top: 10px; }
+    button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
+    button:hover { background: #083463; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>ميزاني</h1>
+    <p>نظام تتبع وتنبيه لصيانة السيارات</p>
+  </header>
+
+  <section>
+    <div class="box">
+      <h3>🚘 بيانات السيارة</h3>
+      <input type="text" id="carType" placeholder="نوع السيارة">
+      <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية">
+      <input type="date" id="lastServiceDate">
+    </div>
+
+    <div class="box">
+      <h3>🛰️ تتبع القيادة</h3>
+      <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
+      <button onclick="startTracking()">ابدأ القيادة</button>
+      <button onclick="stopTracking()">أوقف التتبع</button>
+      <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
+    </div>
+
+    <div class="box">
+      <h3>🔔 تنبيه الصيانة</h3>
+      <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
+    </div>
+  </section>
+
+  <script>
+    let watchId;
+    let lastPosition = null;
+    let totalDistance = 0;
+
+    const alertBox = document.getElementById("alertBox");
+    const distanceEl = document.getElementById("distance");
+    const statusEl = document.getElementById("status");
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function startTracking() {
+      if (!navigator.geolocation) {
+        statusEl.textContent = "📵 الموقع غير مدعوم";
+        return;
+      }
+      watchId = navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude } = pos.coords;
+        if (lastPosition) {
+          const dist = haversine(
+            lastPosition.latitude,
+            lastPosition.longitude,
+            latitude,
+            longitude
+          );
+          if (dist > 0.01) { // تجاهل الحركة الطفيفة
+            totalDistance += dist;
+            distanceEl.textContent = totalDistance.toFixed(2);
+            checkServiceAlert();
+          }
+        }
+        lastPosition = { latitude, longitude };
+        statusEl.textContent = "🚗 التتبع نشط...";
+      }, err => {
+        statusEl.textContent = "📵 خطأ في تتبع الموقع";
+      }, { enableHighAccuracy: true });
+    }
+
+    function stopTracking() {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      statusEl.textContent = "⛔ تم إيقاف التتبع";
+    }
+
+    function checkServiceAlert() {
+      const currentKm = parseFloat(document.getElementById("currentKm").value || 0);
+      const lastDate = new Date(document.getElementById("lastServiceDate").value);
+      const now = new Date();
+      const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+
+      const kmLimit = currentKm + 5000;
+      const timeLimit = 90;
+
+      const totalKm = currentKm + totalDistance;
+
+      if (totalKm >= kmLimit || diffDays >= timeLimit) {
+        alertBox.className = "alert";
+        alertBox.innerHTML = "⚠️ اقترب موعد الصيانة!<br>المسافة: " + totalKm.toFixed(2) + " كم<br>الأيام منذ آخر صيانة: " + diffDays + " يومًا";
+      } else {
+        alertBox.className = "ok";
+        alertBox.innerHTML = "🚗 الصيانة غير مطلوبة حاليًا<br>المسافة: " + totalKm.toFixed(2) + " كم<br>الأيام منذ آخر صيانة: " + diffDays + " يومًا";
+      }
+    }
+  </script>
+
+</body>
+</html>
