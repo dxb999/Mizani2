@@ -15,6 +15,7 @@
     button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
+    pre { background: #eee; padding: 10px; border-radius: 6px; white-space: pre-wrap; margin-top: 10px; direction: ltr; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -64,7 +65,8 @@
   <div class="box">
     <h3>📊 بيانات القيادة السابقة</h3>
     <div id="driveLogs"></div>
-    <button onclick="generateRSS()">📥 تحميل ملف RSS</button>
+    <button onclick="showRSS()">📄 عرض ملف RSS</button>
+    <pre id="rssText" style="display:none;"></pre>
   </div>
 </section>
 
@@ -175,7 +177,7 @@ function stopTracking() {
 
   driveLogs.push(log);
   localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
-  generateRSS(); // ← توليد RSS بدون تحميل
+  generateRSS();
   renderDriveLogs();
 }
 
@@ -248,9 +250,18 @@ function renderDriveLogs() {
   });
 }
 
-// ← تحميل البيانات السابقة عند فتح الصفحة
+function showRSS() {
+  const content = localStorage.getItem("rssFeed");
+  const pre = document.getElementById("rssText");
+  pre.textContent = content || "🚫 لا يوجد ملف RSS محفوظ حتى الآن.";
+  pre.style.display = "block";
+}
+
 window.onload = () => {
   renderDriveLogs();
   generateRSS();
 };
 </script>
+
+</body>
+</html>
