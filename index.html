@@ -34,6 +34,8 @@
     <div class="box">
       <h3>🛰️ تتبع القيادة</h3>
       <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
+      <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span> دقيقة</p>
+      <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
       <button onclick="startTracking()">ابدأ القيادة</button>
       <button onclick="stopTracking()">أوقف التتبع</button>
       <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
@@ -49,6 +51,8 @@
     let watchId;
     let lastPosition = null;
     let totalDistance = 0;
+    let startTime = null;
+    let driveInterval = null;
 
     const alertBox = document.getElementById("alertBox");
     const distanceEl = document.getElementById("distance");
@@ -70,8 +74,21 @@
         statusEl.textContent = "📵 الموقع غير مدعوم";
         return;
       }
+
+      startTime = new Date();
+      driveInterval = setInterval(updateDriveTime, 1000); // تحديث الوقت كل ثانية
+
       watchId = navigator.geolocation.watchPosition(pos => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, speed } = pos.coords;
+
+        // السرعة
+        const speedEl = document.getElementById("speed");
+        if (speed !== null && !isNaN(speed)) {
+          const kmh = (speed * 3.6).toFixed(1); // m/s to km/h
+          speedEl.textContent = kmh;
+        }
+
+        // المسافة
         if (lastPosition) {
           const dist = haversine(
             lastPosition.latitude,
@@ -79,12 +96,13 @@
             latitude,
             longitude
           );
-          if (dist > 0.01) { // تجاهل الحركة الطفيفة
+          if (dist > 0.01) { // تجاهل الاهتزاز البسيط
             totalDistance += dist;
             distanceEl.textContent = totalDistance.toFixed(2);
             checkServiceAlert();
           }
         }
+
         lastPosition = { latitude, longitude };
         statusEl.textContent = "🚗 التتبع نشط...";
       }, err => {
@@ -94,7 +112,15 @@
 
     function stopTracking() {
       if (watchId) navigator.geolocation.clearWatch(watchId);
+      if (driveInterval) clearInterval(driveInterval);
       statusEl.textContent = "⛔ تم إيقاف التتبع";
+    }
+
+    function updateDriveTime() {
+      const now = new Date();
+      const elapsedMs = now - startTime;
+      const elapsedMinutes = Math.floor(elapsedMs / 60000);
+      document.getElementById("driveTime").textContent = elapsedMinutes;
     }
 
     function checkServiceAlert() {
@@ -105,7 +131,6 @@
 
       const kmLimit = currentKm + 5000;
       const timeLimit = 90;
-
       const totalKm = currentKm + totalDistance;
 
       if (totalKm >= kmLimit || diffDays >= timeLimit) {
