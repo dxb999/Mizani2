@@ -112,16 +112,27 @@ function haversine(lat1, lon1, lat2, lon2) {
 
 function updateOdometer() {
   const base = parseFloat(localStorage.getItem("currentKm") || 0);
+  const total = base + totalDistanceAllTrips + totalDistance;
+
   document.getElementById("baseKm").textContent = base.toFixed(2);
-  document.getElementById("addedKm").textContent = totalDistanceAllTrips.toFixed(2);
-  document.getElementById("totalKm").textContent = (base + totalDistanceAllTrips).toFixed(2);
+  document.getElementById("addedKm").textContent = (totalDistanceAllTrips + totalDistance).toFixed(2);
+  document.getElementById("totalKm").textContent = total.toFixed(2);
+
+  // تحديث الحقل الإدخالي بشكل مباشر
+  document.getElementById("currentKm").value = total.toFixed(2);
+  localStorage.setItem("currentKm", total.toFixed(2));
 }
 
 function updateFuelCounter() {
   const fuelStart = parseFloat(localStorage.getItem("fuelRange") || 0);
-  const fuelLeft = fuelStart - totalDistanceAllTrips;
+  const fuelLeft = fuelStart - totalDistanceAllTrips - totalDistance;
+
   document.getElementById("fuelStart").textContent = fuelStart.toFixed(2);
-  document.getElementById("fuelLeft").textContent = fuelLeft.toFixed(2);
+  document.getElementById("fuelLeft").textContent = (fuelLeft > 0 ? fuelLeft : 0).toFixed(2);
+
+  // تحديث حقل إدخال البترول بشكل مباشر
+  document.getElementById("fuelRange").value = (fuelLeft > 0 ? fuelLeft : 0).toFixed(2);
+  localStorage.setItem("fuelRange", (fuelLeft > 0 ? fuelLeft : 0).toFixed(2));
 }
 
 function startTracking() {
