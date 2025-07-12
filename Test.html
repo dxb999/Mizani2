@@ -20,7 +20,9 @@
   </style>
 </head>
 <body>
-
+<div id="popupNotice" style="display:none; position:fixed; top:20px; right:20px; background:#0a3e7d; color:white; padding:15px; border-radius:10px; z-index:9999; box-shadow:0 0 10px rgba(0,0,0,0.2); font-size:16px;">
+  🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...
+</div>
 <header>
   <h1>ميزاني</h1>
   <p>نظام تتبع وتنبيه لصيانة السيارات</p>
@@ -371,6 +373,19 @@ window.onload = () => {
     }, null, { enableHighAccuracy: true });
   }
 };
+  function showPopupNotice(msg) {
+  const el = document.getElementById("popupNotice");
+  el.textContent = msg;
+  el.style.display = "block";
+
+  setTimeout(() => {
+    el.style.display = "none";
+  }, 5000); // اختفاء بعد 5 ثوانٍ
+}
+ if (spd !== null && spd > 2 && !isTracking) {
+  showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
+  startTracking();
+} 
 </script>
 </body>
 </html>
