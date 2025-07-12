@@ -364,7 +364,6 @@ window.onload = () => {
   });
 
   // استشعار تلقائي لحركة السيارة لتشغيل التتبع
-  // استشعار تلقائي لحركة السيارة لتشغيل التتبع
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition(pos => {
     const spd = pos.coords.speed;
@@ -374,6 +373,7 @@ if (navigator.geolocation) {
     }
   }, null, { enableHighAccuracy: true });
 }
+
   function showPopupNotice(msg) {
   const el = document.getElementById("popupNotice");
   el.textContent = msg;
