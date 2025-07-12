@@ -15,6 +15,36 @@
     button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
+    .sidebar {
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 999;
+  top: 0;
+  right: 0;
+  background-color: #0a3e7d;
+  overflow-x: hidden;
+  transition: 0.3s;
+  padding-top: 60px;
+}
+.sidebar a {
+  padding: 12px 20px;
+  text-decoration: none;
+  font-size: 18px;
+  color: white;
+  display: block;
+  transition: 0.3s;
+}
+.sidebar a:hover {
+  background-color: #083463;
+}
+.closebtn {
+  position: absolute;
+  top: 15px;
+  right: 25px;
+  font-size: 28px;
+  color: white;
+}
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -34,7 +64,17 @@
     <input type="number" id="fuelRange" placeholder="المسافة الممكنة بالبترول (كم)">
     <input type="date" id="lastServiceDate">
   </div>
+<!-- زر فتح القائمة -->
+<button id="openSidebar" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">☰ القائمة</button>
 
+<!-- القائمة الجانبية -->
+<div id="sidebar" class="sidebar">
+  <a href="javascript:void(0)" class="closebtn" onclick="closeSidebar()">×</a>
+  <a href="#carData">🚘 بيانات السيارة</a>
+  <a href="#tracking">🛰️ تتبع القيادة</a>
+  <a href="#maintenance">🔔 تنبيه الصيانة</a>
+  <a href="#history">📊 الرحلات السابقة</a>
+</div>
   <div class="box">
     <h3>🛰️ تتبع القيادة</h3>
     <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
@@ -334,6 +374,13 @@ window.onload = () => {
     }
   });
 };
+document.getElementById("openSidebar").onclick = function () {
+  document.getElementById("sidebar").style.width = "250px";
+}
+function closeSidebar() {
+  document.getElementById("sidebar").style.width = "0";
+}
+  
 </script>
 
 </body>
