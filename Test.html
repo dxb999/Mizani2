@@ -364,15 +364,16 @@ window.onload = () => {
   });
 
   // استشعار تلقائي لحركة السيارة لتشغيل التتبع
-  if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(pos => {
-      const spd = pos.coords.speed;
-      if (spd !== null && spd > 2 && !isTracking) {
-        startTracking(); // تشغيل تلقائي
-      }
-    }, null, { enableHighAccuracy: true });
-  }
-};
+  // استشعار تلقائي لحركة السيارة لتشغيل التتبع
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(pos => {
+    const spd = pos.coords.speed;
+    if (spd !== null && spd > 2 && !isTracking) {
+      showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
+      startTracking(); // تشغيل تلقائي
+    }
+  }, null, { enableHighAccuracy: true });
+}
   function showPopupNotice(msg) {
   const el = document.getElementById("popupNotice");
   el.textContent = msg;
@@ -382,10 +383,7 @@ window.onload = () => {
     el.style.display = "none";
   }, 5000); // اختفاء بعد 5 ثوانٍ
 }
- if (spd !== null && spd > 2 && !isTracking) {
-  showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
-  startTracking();
-} 
+
 </script>
 </body>
 </html>
