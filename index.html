@@ -15,17 +15,17 @@
     button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
-    .sidebar {
-  height: 100%;
+.sidebar {
+  height: 100vh;
   width: 0;
   position: fixed;
-  z-index: 999;
   top: 0;
-  right: 0;
+  right: 0; /* ✅ تأكد أنها تظهر من اليمين */
   background-color: #0a3e7d;
   overflow-x: hidden;
-  transition: 0.3s;
+  transition: 0.3s ease;
   padding-top: 60px;
+  z-index: 1000;
 }
 .sidebar a {
   padding: 12px 20px;
@@ -65,7 +65,7 @@
     <input type="date" id="lastServiceDate">
   </div>
 <!-- زر فتح القائمة -->
-<button id="openSidebar" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">☰ القائمة</button>
+  <button id="openSidebar" style="position: absolute; top: 20px; right: 20px; z-index: 1100;">☰ القائمة</button>
 
 <!-- القائمة الجانبية -->
 <div id="sidebar" class="sidebar">  <a href="#carData">🚘 بيانات السيارة</a>
