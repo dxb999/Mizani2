@@ -112,15 +112,19 @@ function haversine(lat1, lon1, lat2, lon2) {
 
 function updateOdometer() {
   const base = parseFloat(localStorage.getItem("currentKm") || 0);
-  const total = base + totalDistanceAllTrips + totalDistance;
+  const added = parseFloat(localStorage.getItem("totalDistanceAllTrips") || 0);
+  const liveTrip = totalDistance;
+
+  const total = base + added + liveTrip;
 
   document.getElementById("baseKm").textContent = base.toFixed(2);
-  document.getElementById("addedKm").textContent = (totalDistanceAllTrips + totalDistance).toFixed(2);
+  document.getElementById("addedKm").textContent = (added + liveTrip).toFixed(2);
   document.getElementById("totalKm").textContent = total.toFixed(2);
 
-  // تحديث الحقل الإدخالي بشكل مباشر
-  document.getElementById("currentKm").value = total.toFixed(2);
-  localStorage.setItem("currentKm", total.toFixed(2));
+  // لا نحدث الـ baseKm إلا بعد نهاية الرحلة فقط
+  if (!watchId) {
+    document.getElementById("currentKm").value = (base + added).toFixed(2);
+  }
 }
 
 function updateFuelCounter() {
@@ -204,6 +208,11 @@ function stopTracking() {
   totalDistanceAllTrips += totalDistance;
   localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
   localStorage.setItem("totalDistanceAllTrips", totalDistanceAllTrips);
+
+  // ✅ تحديث العداد الأساسي بعد الرحلة فقط
+  const currentBase = parseFloat(localStorage.getItem("currentKm") || 0);
+  localStorage.setItem("currentKm", (currentBase + totalDistance).toFixed(2));
+
   generateRSS();
   renderDriveLogs();
   updateOdometer();
