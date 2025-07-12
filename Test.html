@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <title>ميزاني - صيانة السيارة</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
     header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
@@ -16,14 +18,10 @@
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
   </style>
-  <!-- مكتبة Leaflet للخرائط -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-  <header>
+
+<header>
   <h1>ميزاني</h1>
   <p>نظام تتبع وتنبيه لصيانة السيارات</p>
 </header>
@@ -45,104 +43,316 @@
     <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
     <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span></p>
     <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
-    <button onclick="startTracking()">ابدأ القيادة</button>
+    <button onclick="manualStart()">ابدأ القيادة</button>
     <button onclick="stopTracking()">أوقف التتبع</button>
-    <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
-  </div>
-
-  <div class="box">
-    <h3>🔔 تنبيه الصيانة</h3>
-    <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
+    <div id="status" class="ok">🚗 في وضع المراقبة لاكتشاف الحركة</div>
   </div>
 
   <div class="box">
     <h3>🗺️ خريطة الحركة</h3>
     <div id="map"></div>
   </div>
-    <div class="box">
-    <h3>🧮 عداد الكيلومترات</h3>
-    <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
-    <p>المسافة المقطوعة (جميع الرحلات): <span id="addedKm">0</span> كم</p>
-    <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
-  </div>
-
-  <div class="box">
-    <h3>⛽ عداد البترول</h3>
-    <p>المسافة الممكنة بالبترول عند آخر تعبئة: <span id="fuelStart">0</span> كم</p>
-    <p><strong>🚨 المسافة المتبقية قبل نفاد البترول: <span id="fuelLeft">0</span> كم</strong></p>
-  </div>
-
-  <div class="box">
-    <h3>📊 بيانات القيادة السابقة</h3>
-    <div id="driveLogs"></div>
-    <button onclick="resetAllData()" style="background-color: #c0392b;">🗑️ مسح جميع الرحلات</button>
-  </div>
 </section>
-<style>
-  body {
-    font-family: Tahoma;
-    background: #f4f7fa;
-    color: #333;
-    margin: 0;
-    padding: 0;
+  <script>
+let map, watchId, driveInterval, autoStopTimeout;
+let totalDistance = 0, maxSpeed = 0;
+let startTime, lastPosition = null;
+let sessionStartCoords = null, sessionEndCoords = null;
+let pathCoords = [], pathLine = null;
+let driveLogs = [], totalDistanceAllTrips = 0;
+let isTracking = false;
+
+// حساب المسافة بين نقطتين
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371; // نصف قطر الأرض بالكيلومتر
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// تهيئة الخريطة
+function initMap() {
+  map = L.map('map').setView([25.276987, 55.296249], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+}
+
+// تحديث الخريطة بنقطة جديدة
+function updateMap(lat, lon) {
+  const newPoint = [lat, lon];
+  pathCoords.push(newPoint);
+
+  if (!pathLine) {
+    pathLine = L.polyline(pathCoords, { color: 'blue' }).addTo(map);
+  } else {
+    pathLine.setLatLngs(pathCoords);
   }
 
-  header {
-    background: #0a3e7d;
-    color: white;
-    padding: 20px;
-    text-align: center;
-  }
+  map.setView(newPoint, 15);
+}
 
-  section {
-    padding: 20px;
-  }
+// تشغيل التتبع التلقائي عند اكتشاف حركة
+function detectDriving() {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
 
-  input,
-  button {
-    padding: 10px;
-    margin: 5px 0;
-    width: 100%;
-    box-sizing: border-box;
-  }
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude, speed } = pos.coords;
 
-  .box {
-    background: white;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
+    if (speed && speed > 2 && !isTracking) {
+      startTracking(); // ⬅️ التفعيل التلقائي
+    }
+  }, () => {
+    document.getElementById("status").textContent = "📵 خطأ في الموقع";
+  }, { enableHighAccuracy: true });
+}
 
-  .alert {
-    background: #fce4e4;
-    color: #b00020;
-    padding: 10px;
-    border-radius: 6px;
-    margin-top: 10px;
+// تشغيل التتبع يدويًا
+function manualStart() {
+  if (!isTracking) {
+    startTracking();
   }
+}
 
-  .ok {
-    background: #e8f5e9;
-    color: #2e7d32;
-    padding: 10px;
-    border-radius: 6px;
-    margin-top: 10px;
-  }
+// بدء التتبع الكامل
+function startTracking() {
+  totalDistance = 0;
+  maxSpeed = 0;
+  pathCoords = [];
+  pathLine = null;
+  sessionStartCoords = null;
+  sessionEndCoords = null;
+  lastPosition = null;
+  document.getElementById("distance").textContent = "0";
+  document.getElementById("speed").textContent = "0";
+  document.getElementById("driveTime").textContent = "0";
 
-  button {
-    background: #0a3e7d;
-    color: white;
-    border: none;
-    cursor: pointer;
-  }
+  initMap();
+  startTime = new Date();
+  isTracking = true;
+  clearInterval(driveInterval);
+  driveInterval = setInterval(updateDriveTime, 1000);
 
-  button:hover {
-    background: #083463;
-  }
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude, speed } = pos.coords;
 
-  #map {
-    height: 300px;
-    border-radius: 10px;
+    updateMap(latitude, longitude);
+
+    if (speed !== null && !isNaN(speed)) {
+      const kmh = (speed * 3.6).toFixed(1);
+      document.getElementById("speed").textContent = kmh;
+      if (speed * 3.6 > maxSpeed) maxSpeed = speed * 3.6;
+    }
+
+    if (!sessionStartCoords) sessionStartCoords = [latitude, longitude];
+    sessionEndCoords = [latitude, longitude];
+
+    if (lastPosition) {
+      const dist = haversine(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
+      if (dist > 0.01) {
+        totalDistance += dist;
+        document.getElementById("distance").textContent = totalDistance.toFixed(2);
+        clearTimeout(autoStopTimeout);
+        autoStopTimeout = setTimeout(stopTracking, 60000); // ⏱️ التوقف التلقائي بعد 60 ثانية توقف
+      }
+    }
+
+    lastPosition = { latitude, longitude };
+    document.getElementById("status").textContent = "🚗 التتبع نشط...";
+  }, () => {
+    document.getElementById("status").textContent = "📵 خطأ في التتبع";
+  }, { enableHighAccuracy: true });
+}
+</script>
+<script>
+// إيقاف التتبع وتسجيل الرحلة
+function stopTracking() {
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (driveInterval) clearInterval(driveInterval);
+  clearTimeout(autoStopTimeout);
+  isTracking = false;
+
+  document.getElementById("status").textContent = "⛔ تم إيقاف التتبع";
+
+  const now = new Date();
+  const elapsedMs = now - startTime;
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const formattedDuration = `${hours} س ${minutes} د ${seconds} ث`;
+
+  const log = {
+    start: sessionStartCoords,
+    end: sessionEndCoords,
+    distance: totalDistance.toFixed(2),
+    duration: formattedDuration,
+    maxSpeed: maxSpeed.toFixed(1)
+  };
+
+  // حفظ السجل
+  driveLogs.push(log);
+  totalDistanceAllTrips += totalDistance;
+  localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
+  localStorage.setItem("totalDistanceAllTrips", totalDistanceAllTrips);
+
+  // تحديث العداد الأساسي
+  const currentBase = parseFloat(localStorage.getItem("currentKm") || 0);
+  localStorage.setItem("currentKm", (currentBase + totalDistance).toFixed(2));
+
+  // خصم من عداد البترول
+  const currentFuel = parseFloat(localStorage.getItem("fuelRange") || 0);
+  localStorage.setItem("fuelRange", (currentFuel - totalDistance > 0 ? currentFuel - totalDistance : 0).toFixed(2));
+
+  generateRSS();
+  renderDriveLogs();
+  updateOdometer();
+  updateFuelCounter();
+  checkServiceAlert();
+}
+
+// تحديث الوقت الحي
+function updateDriveTime() {
+  const now = new Date();
+  const elapsedMs = now - startTime;
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const formatted = `${hours} س ${minutes} د ${seconds} ث`;
+  document.getElementById("driveTime").textContent = formatted;
+}
+
+// تحديث عداد الكيلومترات
+function updateOdometer() {
+  const base = parseFloat(localStorage.getItem("currentKm") || 0);
+  const added = parseFloat(localStorage.getItem("totalDistanceAllTrips") || 0);
+  const liveTrip = totalDistance;
+
+  const total = base + added + liveTrip;
+
+  document.getElementById("baseKm").textContent = base.toFixed(2);
+  document.getElementById("addedKm").textContent = (added + liveTrip).toFixed(2);
+  document.getElementById("totalKm").textContent = total.toFixed(2);
+
+  if (!isTracking) {
+    document.getElementById("currentKm").value = (base + added).toFixed(2);
   }
-</style>
+}
+
+// تحديث عداد البترول
+function updateFuelCounter() {
+  const fuelLeft = parseFloat(localStorage.getItem("fuelRange") || 0);
+  document.getElementById("fuelStart").textContent = fuelLeft.toFixed(2);
+  document.getElementById("fuelLeft").textContent = fuelLeft.toFixed(2);
+  document.getElementById("fuelRange").value = fuelLeft.toFixed(2);
+}
+</script>
+<script>
+// إنشاء RSS للرحلات (اختياري)
+function generateRSS() {
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  let rssContent = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n`;
+  rssContent += `<title>بيانات القيادة - ميزاني</title>\n<link>https://example.com/</link>\n<description>خلاصات الرحلات</description>\n`;
+
+  logs.forEach((log, index) => {
+    const pubDate = new Date().toUTCString();
+    rssContent += `<item>\n<title>رحلة ${index + 1}</title>\n`;
+    rssContent += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration} - السرعة القصوى: ${log.maxSpeed} كم/س</description>\n`;
+    rssContent += `<pubDate>${pubDate}</pubDate>\n</item>\n`;
+  });
+
+  rssContent += `</channel>\n</rss>`;
+  localStorage.setItem("rssFeed", rssContent);
+}
+
+// عرض السجلات السابقة
+function renderDriveLogs() {
+  const container = document.getElementById("driveLogs");
+  container.innerHTML = "";
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  driveLogs = logs;
+
+  logs.forEach((log, index) => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      <strong>رحلة #${index + 1}</strong><br>
+      🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
+      📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
+      ⏱️ المدة: ${log.duration}<br>
+      🚗 المسافة: ${log.distance} كم<br>
+      🚀 أعلى سرعة: ${log.maxSpeed} كم/س
+    `;
+    container.appendChild(div);
+  });
+}
+
+// مسح البيانات بالكامل
+function resetAllData() {
+  if (confirm("هل أنت متأكد أنك تريد حذف جميع البيانات؟ لا يمكن التراجع.")) {
+    localStorage.removeItem("driveLogs");
+    localStorage.removeItem("totalDistanceAllTrips");
+    localStorage.removeItem("rssFeed");
+    totalDistanceAllTrips = 0;
+    driveLogs = [];
+    renderDriveLogs();
+    updateOdometer();
+    updateFuelCounter();
+    alert("تم حذف جميع بيانات الرحلات بنجاح.");
+  }
+}
+
+// تحميل البيانات عند تشغيل الصفحة
+window.onload = () => {
+  totalDistanceAllTrips = parseFloat(localStorage.getItem("totalDistanceAllTrips") || 0);
+
+  const savedKm = localStorage.getItem("currentKm");
+  const savedFuel = localStorage.getItem("fuelRange");
+  const savedServiceDate = localStorage.getItem("lastServiceDate");
+
+  if (savedKm !== null) document.getElementById("currentKm").value = savedKm;
+  if (savedFuel !== null) document.getElementById("fuelRange").value = savedFuel;
+  if (savedServiceDate !== null) document.getElementById("lastServiceDate").value = savedServiceDate;
+
+  renderDriveLogs();
+  updateOdometer();
+  updateFuelCounter();
+  checkServiceAlert();
+
+  // عند تعديل الكيلومترات يدويًا
+  document.getElementById("currentKm").addEventListener("input", function () {
+    const val = parseFloat(this.value);
+    if (!isNaN(val)) {
+      localStorage.setItem("currentKm", val.toFixed(2));
+      updateOdometer();
+      checkServiceAlert();
+    }
+  });
+
+  // عند تعديل عداد البترول يدويًا
+  document.getElementById("fuelRange").addEventListener("input", function () {
+    const val = parseFloat(this.value);
+    if (!isNaN(val)) {
+      localStorage.setItem("fuelRange", val.toFixed(2));
+      updateFuelCounter();
+    }
+  });
+
+  // استشعار تلقائي لحركة السيارة لتشغيل التتبع
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+      const spd = pos.coords.speed;
+      if (spd !== null && spd > 2 && !isTracking) {
+        startTracking(); // تشغيل تلقائي
+      }
+    }, null, { enableHighAccuracy: true });
+  }
+};
+</script>
