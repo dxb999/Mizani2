@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ميزاني - صيانة السيارة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
+    header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
+    section { padding: 20px; }
+    input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    .box { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .alert { background: #fce4e4; color: #b00020; padding: 10px; border-radius: 6px; margin-top: 10px; }
+    .ok { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 6px; margin-top: 10px; }
+    button { background: #0a3e7d; color: white; border: none; cursor: pointer; }
+    button:hover { background: #083463; }
+    #map { height: 300px; border-radius: 10px; }
+  </style>
+  <!-- مكتبة Leaflet للخرائط -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header>
+  <h1>ميزاني</h1>
+  <p>نظام تتبع وتنبيه لصيانة السيارات</p>
+</header>
+
+<section>
+  <div class="box">
+    <h3>🚘 بيانات السيارة</h3>
+    <select id="carType" onchange="switchCar(this.value)">
+      <option value="range">رنج روفر</option>
+      <option value="camry">كامري</option>
+    </select>
+    <input type="number" id="currentKm" placeholder="عدد الكيلومترات الحالية">
+    <input type="number" id="fuelRange" placeholder="المسافة الممكنة بالبترول (كم)">
+    <input type="date" id="lastServiceDate">
+  </div>
+
+  <div class="box">
+    <h3>🛰️ تتبع القيادة</h3>
+    <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
+    <p>⏱️ الوقت منذ بدء التتبع: <span id="driveTime">0</span></p>
+    <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
+    <button onclick="startTracking()">ابدأ القيادة</button>
+    <button onclick="stopTracking()">أوقف التتبع</button>
+    <div id="status" class="ok">بإمكانك بدء التتبع الآن.</div>
+  </div>
+
+  <div class="box">
+    <h3>🔔 تنبيه الصيانة</h3>
+    <div id="alertBox" class="ok">🚗 الصيانة غير مطلوبة حاليًا</div>
+  </div>
+
+  <div class="box">
+    <h3>🗺️ خريطة الحركة</h3>
+    <div id="map"></div>
+  </div>
+    <div class="box">
+    <h3>🧮 عداد الكيلومترات</h3>
+    <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
+    <p>المسافة المقطوعة (جميع الرحلات): <span id="addedKm">0</span> كم</p>
+    <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
+  </div>
+
+  <div class="box">
+    <h3>⛽ عداد البترول</h3>
+    <p>المسافة الممكنة بالبترول عند آخر تعبئة: <span id="fuelStart">0</span> كم</p>
+    <p><strong>🚨 المسافة المتبقية قبل نفاد البترول: <span id="fuelLeft">0</span> كم</strong></p>
+  </div>
+
+  <div class="box">
+    <h3>📊 بيانات القيادة السابقة</h3>
+    <div id="driveLogs"></div>
+    <button onclick="resetAllData()" style="background-color: #c0392b;">🗑️ مسح جميع الرحلات</button>
+  </div>
+</section>
+<style>
+  body {
+    font-family: Tahoma;
+    background: #f4f7fa;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  }
+
+  header {
+    background: #0a3e7d;
+    color: white;
+    padding: 20px;
+    text-align: center;
+  }
+
+  section {
+    padding: 20px;
+  }
+
+  input,
+  button {
+    padding: 10px;
+    margin: 5px 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .box {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  .alert {
+    background: #fce4e4;
+    color: #b00020;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+
+  .ok {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+
+  button {
+    background: #0a3e7d;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #083463;
+  }
+
+  #map {
+    height: 300px;
+    border-radius: 10px;
+  }
+</style>
