@@ -68,9 +68,7 @@
 <button id="openSidebar" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">☰ القائمة</button>
 
 <!-- القائمة الجانبية -->
-<div id="sidebar" class="sidebar">
-  <a href="javascript:void(0)" class="closebtn" onclick="closeSidebar()">×</a>
-  <a href="#carData">🚘 بيانات السيارة</a>
+<div id="sidebar" class="sidebar">  <a href="#carData">🚘 بيانات السيارة</a>
   <a href="#tracking">🛰️ تتبع القيادة</a>
   <a href="#maintenance">🔔 تنبيه الصيانة</a>
   <a href="#history">📊 الرحلات السابقة</a>
@@ -375,11 +373,13 @@ window.onload = () => {
   });
 };
 document.getElementById("openSidebar").onclick = function () {
-  document.getElementById("sidebar").style.width = "250px";
-}
-function closeSidebar() {
-  document.getElementById("sidebar").style.width = "0";
-}
+  const sidebar = document.getElementById("sidebar");
+  if (sidebar.style.width === "250px") {
+    sidebar.style.width = "0"; // إغلاق القائمة إذا كانت مفتوحة
+  } else {
+    sidebar.style.width = "250px"; // فتح القائمة
+  }
+};
   
 </script>
 
