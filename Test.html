@@ -364,14 +364,36 @@ window.onload = () => {
   });
 
   // استشعار تلقائي لحركة السيارة لتشغيل التتبع
+// استشعار تلقائي لحركة السيارة لتشغيل التتبع
 if (navigator.geolocation) {
+  let lastLat = null, lastLon = null, lastMoveTime = null;
+
   navigator.geolocation.watchPosition(pos => {
-    const spd = pos.coords.speed;
-    if (spd !== null && spd > 2 && !isTracking) {
-      showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
-      startTracking(); // تشغيل تلقائي
+    const { latitude, longitude } = pos.coords;
+
+    if (lastLat !== null && lastLon !== null) {
+      const dist = haversine(lastLat, lastLon, latitude, longitude);
+      const now = Date.now();
+
+      // إذا تحرك أكثر من 30 متر خلال آخر 10 ثواني
+      if (dist > 0.03 && !isTracking) {
+        const timeDiff = now - (lastMoveTime || now);
+        if (timeDiff < 10000) {
+          showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
+          startTracking();
+        }
+      }
+
+      lastMoveTime = now;
     }
-  }, null, { enableHighAccuracy: true });
+
+    lastLat = latitude;
+    lastLon = longitude;
+
+  }, err => {
+    console.warn("❌ فشل في تحديد الموقع:", err);
+    document.getElementById("status").textContent = "📵 خطأ في الموقع";
+  }, { enableHighAccuracy: true });
 }
 
   function showPopupNotice(msg) {
