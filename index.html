@@ -301,13 +301,38 @@ function renderDriveLogs() {
 
 window.onload = () => {
   totalDistanceAllTrips = parseFloat(localStorage.getItem("totalDistanceAllTrips") || 0);
-  document.getElementById("currentKm").value = localStorage.getItem("currentKm") || "";
-  document.getElementById("fuelRange").value = localStorage.getItem("fuelRange") || "";
-  document.getElementById("lastServiceDate").value = localStorage.getItem("lastServiceDate") || "";
+
+  const savedKm = localStorage.getItem("currentKm");
+  const savedFuel = localStorage.getItem("fuelRange");
+  const savedServiceDate = localStorage.getItem("lastServiceDate");
+
+  if (savedKm !== null) document.getElementById("currentKm").value = savedKm;
+  if (savedFuel !== null) document.getElementById("fuelRange").value = savedFuel;
+  if (savedServiceDate !== null) document.getElementById("lastServiceDate").value = savedServiceDate;
+
   renderDriveLogs();
   updateOdometer();
   updateFuelCounter();
   checkServiceAlert();
+
+  // ✅ تحديث فوري عند تغيير الكيلومترات يدويًا
+  document.getElementById("currentKm").addEventListener("input", function () {
+    const val = parseFloat(this.value);
+    if (!isNaN(val)) {
+      localStorage.setItem("currentKm", val.toFixed(2));
+      updateOdometer();
+      checkServiceAlert();
+    }
+  });
+
+  // ✅ تحديث فوري عند تغيير البترول يدويًا
+  document.getElementById("fuelRange").addEventListener("input", function () {
+    const val = parseFloat(this.value);
+    if (!isNaN(val)) {
+      localStorage.setItem("fuelRange", val.toFixed(2));
+      updateFuelCounter();
+    }
+  });
 };
 </script>
 
