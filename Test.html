@@ -52,6 +52,22 @@
     <h3>🗺️ خريطة الحركة</h3>
     <div id="map"></div>
   </div>
+  <div class="box">
+  <h3>🧮 عداد الكيلومترات</h3>
+  <p>الكيلومترات الأساسية: <span id="baseKm">0</span> كم</p>
+  <p>المسافة المقطوعة (جميع الرحلات): <span id="addedKm">0</span> كم</p>
+  <p><strong>📈 المجموع الكلي: <span id="totalKm">0</span> كم</strong></p>
+</div>
+  <div class="box">
+  <h3>⛽ عداد البترول</h3>
+  <p>المسافة الممكنة بالبترول عند آخر تعبئة: <span id="fuelStart">0</span> كم</p>
+  <p><strong>🚨 المسافة المتبقية قبل نفاد البترول: <span id="fuelLeft">0</span> كم</strong></p>
+</div>
+  <div class="box">
+  <h3>📊 بيانات القيادة السابقة</h3>
+  <div id="driveLogs"></div>
+  <button onclick="resetAllData()" style="background-color: #c0392b;">🗑️ مسح جميع الرحلات</button>
+</div>
 </section>
   <script>
 let map, watchId, driveInterval, autoStopTimeout;
