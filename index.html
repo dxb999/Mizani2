@@ -128,15 +128,11 @@ function updateOdometer() {
 }
 
 function updateFuelCounter() {
-  const fuelStart = parseFloat(localStorage.getItem("fuelRange") || 0);
-  const fuelLeft = fuelStart - totalDistanceAllTrips - totalDistance;
+  const fuelLeft = parseFloat(localStorage.getItem("fuelRange") || 0);
 
-  document.getElementById("fuelStart").textContent = fuelStart.toFixed(2);
-  document.getElementById("fuelLeft").textContent = (fuelLeft > 0 ? fuelLeft : 0).toFixed(2);
-
-  // تحديث حقل إدخال البترول بشكل مباشر
-  document.getElementById("fuelRange").value = (fuelLeft > 0 ? fuelLeft : 0).toFixed(2);
-  localStorage.setItem("fuelRange", (fuelLeft > 0 ? fuelLeft : 0).toFixed(2));
+  document.getElementById("fuelStart").textContent = fuelLeft.toFixed(2);
+  document.getElementById("fuelLeft").textContent = fuelLeft.toFixed(2);
+  document.getElementById("fuelRange").value = fuelLeft.toFixed(2);
 }
 
 function startTracking() {
@@ -209,9 +205,13 @@ function stopTracking() {
   localStorage.setItem("driveLogs", JSON.stringify(driveLogs));
   localStorage.setItem("totalDistanceAllTrips", totalDistanceAllTrips);
 
-  // ✅ تحديث العداد الأساسي بعد الرحلة فقط
+  // ✅ تحديث عداد الكيلومترات
   const currentBase = parseFloat(localStorage.getItem("currentKm") || 0);
   localStorage.setItem("currentKm", (currentBase + totalDistance).toFixed(2));
+
+  // ✅ تحديث عداد البترول
+  const currentFuel = parseFloat(localStorage.getItem("fuelRange") || 0);
+  localStorage.setItem("fuelRange", (currentFuel - totalDistance > 0 ? currentFuel - totalDistance : 0).toFixed(2));
 
   generateRSS();
   renderDriveLogs();
