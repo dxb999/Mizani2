@@ -16,16 +16,16 @@
     button:hover { background: #083463; }
     #map { height: 300px; border-radius: 10px; }
 .sidebar {
-  height: 100vh;
+   height: 100%;
   width: 0;
   position: fixed;
+  z-index: 999;
   top: 0;
-  right: 0; /* ✅ تأكد أنها تظهر من اليمين */
+  right: 0;
   background-color: #0a3e7d;
   overflow-x: hidden;
-  transition: 0.3s ease;
+  transition: 0.3s;
   padding-top: 60px;
-  z-index: 1000;
 }
 .sidebar a {
   padding: 12px 20px;
