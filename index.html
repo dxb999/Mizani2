@@ -345,3 +345,109 @@ window.onload = () => {
 
 </body>
 </html>
+<script>
+// إنشاء RSS للرحلات (اختياري)
+function generateRSS() {
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  let rssContent = `<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n`;
+  rssContent += `<title>بيانات القيادة - ميزاني</title>\n<link>https://example.com/</link>\n<description>خلاصات الرحلات</description>\n`;
+
+  logs.forEach((log, index) => {
+    const pubDate = new Date().toUTCString();
+    rssContent += `<item>\n<title>رحلة ${index + 1}</title>\n`;
+    rssContent += `<description>المسافة: ${log.distance} كم - المدة: ${log.duration} - السرعة القصوى: ${log.maxSpeed} كم/س</description>\n`;
+    rssContent += `<pubDate>${pubDate}</pubDate>\n</item>\n`;
+  });
+
+  rssContent += `</channel>\n</rss>`;
+  localStorage.setItem("rssFeed", rssContent);
+}
+
+// عرض السجلات السابقة
+function renderDriveLogs() {
+  const container = document.getElementById("driveLogs");
+  container.innerHTML = "";
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  driveLogs = logs;
+
+  logs.forEach((log, index) => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      <strong>رحلة #${index + 1}</strong><br>
+      🗺️ من: [${log.start?.[0]?.toFixed(4)}, ${log.start?.[1]?.toFixed(4)}]<br>
+      📍 إلى: [${log.end?.[0]?.toFixed(4)}, ${log.end?.[1]?.toFixed(4)}]<br>
+      ⏱️ المدة: ${log.duration}<br>
+      🚗 المسافة: ${log.distance} كم<br>
+      🚀 أعلى سرعة: ${log.maxSpeed} كم/س
+    `;
+    container.appendChild(div);
+  });
+}
+
+// مسح البيانات بالكامل
+function resetAllData() {
+  if (confirm("هل أنت متأكد أنك تريد حذف جميع البيانات؟ لا يمكن التراجع.")) {
+    localStorage.removeItem("driveLogs");
+    localStorage.removeItem("totalDistanceAllTrips");
+    localStorage.removeItem("rssFeed");
+    totalDistanceAllTrips = 0;
+    driveLogs = [];
+    renderDriveLogs();
+    updateOdometer();
+    updateFuelCounter();
+    alert("تم حذف جميع بيانات الرحلات بنجاح.");
+  }
+}
+
+// تحميل البيانات عند تشغيل الصفحة
+window.onload = () => {
+  totalDistanceAllTrips = parseFloat(localStorage.getItem("totalDistanceAllTrips") || 0);
+
+  const savedKm = localStorage.getItem("currentKm");
+  const savedFuel = localStorage.getItem("fuelRange");
+  const savedServiceDate = localStorage.getItem("lastServiceDate");
+
+  if (savedKm !== null) document.getElementById("currentKm").value = savedKm;
+  if (savedFuel !== null) document.getElementById("fuelRange").value = savedFuel;
+  if (savedServiceDate !== null) document.getElementById("lastServiceDate").value = savedServiceDate;
+
+  renderDriveLogs();
+  updateOdometer();
+  updateFuelCounter();
+  checkServiceAlert();
+
+  // عند تعديل الكيلومترات يدويًا
+  document.getElementById("currentKm").addEventListener("input", function () {
+    const val = parseFloat(this.value);
+    if (!isNaN(val)) {
+      localStorage.setItem("currentKm", val.toFixed(2));
+      updateOdometer();
+      checkServiceAlert();
+    }
+  });
+
+  // عند تعديل عداد البترول يدويًا
+  document.getElementById("fuelRange").addEventListener("input", function () {
+    const val = parseFloat(this.value);
+    if (!isNaN(val)) {
+      localStorage.setItem("fuelRange", val.toFixed(2));
+      updateFuelCounter();
+    }
+  });
+
+  // استشعار تلقائي لحركة السيارة لتشغيل التتبع
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+      const spd = pos.coords.speed;
+      if (spd !== null && spd > 2 && !isTracking) {
+        startTracking(); // تشغيل تلقائي
+      }
+    }, null, { enableHighAccuracy: true });
+  }
+};
+</script>
+</body>
+</html>
+
+
