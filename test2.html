@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>اختبار التتبع التلقائي</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Tahoma; padding: 20px; background: #f0f0f0; text-align: center; }
+    #status { margin-top: 20px; font-size: 18px; color: #0a3e7d; }
+    #popupNotice {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #0a3e7d;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      z-index: 9999;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>🚗 اختبار التتبع التلقائي</h2>
+<p>ابدأ المشي أو قيادة السيارة وسيتم اكتشاف الحركة تلقائيًا</p>
+<div id="status">⏳ في انتظار الحركة...</div>
+<div id="popupNotice">🚗 تم اكتشاف حركة!</div>
+
+<script>
+let lastLat = null, lastLon = null, lastMoveTime = null;
+let isTracking = false;
+
+function showPopupNotice(msg) {
+  const el = document.getElementById("popupNotice");
+  el.textContent = msg;
+  el.style.display = "block";
+  setTimeout(() => {
+    el.style.display = "none";
+  }, 5000);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371; // نصف قطر الأرض بالكيلومتر
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    const now = Date.now();
+
+    if (lastLat !== null && lastLon !== null) {
+      const dist = haversine(lastLat, lastLon, latitude, longitude);
+      const timeDiff = now - (lastMoveTime || now);
+
+      if (dist > 0.03 && !isTracking && timeDiff < 10000) {
+        isTracking = true;
+        showPopupNotice("🚗 تم اكتشاف حركة! التتبع بدأ...");
+        document.getElementById("status").textContent = "✅ تم اكتشاف الحركة!";
+      }
+      lastMoveTime = now;
+    }
+
+    lastLat = latitude;
+    lastLon = longitude;
+  }, err => {
+    document.getElementById("status").textContent = "📵 فشل في تحديد الموقع.";
+    console.error(err);
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 5000
+  });
+} else {
+  document.getElementById("status").textContent = "🚫 المتصفح لا يدعم تتبع الموقع.";
+}
+</script>
+
+</body>
+</html>
