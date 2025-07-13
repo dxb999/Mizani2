@@ -344,7 +344,7 @@ window.onload = () => {
   updateFuelCounter();
   checkServiceAlert();
 
-  // عند تعديل الكيلومترات يدويًا
+  // تحديث عداد الكيلومترات يدويًا
   document.getElementById("currentKm").addEventListener("input", function () {
     const val = parseFloat(this.value);
     if (!isNaN(val)) {
@@ -354,7 +354,7 @@ window.onload = () => {
     }
   });
 
-  // عند تعديل عداد البترول يدويًا
+  // تحديث عداد البترول يدويًا
   document.getElementById("fuelRange").addEventListener("input", function () {
     const val = parseFloat(this.value);
     if (!isNaN(val)) {
@@ -363,39 +363,39 @@ window.onload = () => {
     }
   });
 
-  // استشعار تلقائي لحركة السيارة لتشغيل التتبع
-// استشعار تلقائي لحركة السيارة لتشغيل التتبع
-if (navigator.geolocation) {
-  let lastLat = null, lastLon = null, lastMoveTime = null;
+  // ✅ استشعار حركة السيارة لتفعيل التتبع تلقائيًا
+  if (navigator.geolocation) {
+    let lastLat = null, lastLon = null, lastMoveTime = null;
 
-  navigator.geolocation.watchPosition(pos => {
-    const { latitude, longitude } = pos.coords;
+    navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude } = pos.coords;
 
-    if (lastLat !== null && lastLon !== null) {
-      const dist = haversine(lastLat, lastLon, latitude, longitude);
-      const now = Date.now();
+      if (lastLat !== null && lastLon !== null) {
+        const dist = haversine(lastLat, lastLon, latitude, longitude);
+        const now = Date.now();
 
-      // إذا تحرك أكثر من 30 متر خلال آخر 10 ثواني
-      if (dist > 0.03 && !isTracking) {
-        const timeDiff = now - (lastMoveTime || now);
-        if (timeDiff < 10000) {
-          showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
-          startTracking();
+        // إذا تحرك أكثر من 30 متر خلال آخر 10 ثواني
+        if (dist > 0.03 && !isTracking) {
+          const timeDiff = now - (lastMoveTime || now);
+          if (timeDiff < 10000) {
+            showPopupNotice("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
+            document.getElementById("status").textContent = "🚗 التتبع نشط...";
+            startTracking();  // ✅ بدأ التتبع
+          }
         }
+
+        lastMoveTime = now;
       }
 
-      lastMoveTime = now;
-    }
+      lastLat = latitude;
+      lastLon = longitude;
 
-    lastLat = latitude;
-    lastLon = longitude;
-
-  }, err => {
-    console.warn("❌ فشل في تحديد الموقع:", err);
-    document.getElementById("status").textContent = "📵 خطأ في الموقع";
-  }, { enableHighAccuracy: true });
-}
-
+    }, err => {
+      console.warn("❌ فشل في تحديد الموقع:", err);
+      document.getElementById("status").textContent = "📵 خطأ في الموقع";
+    }, { enableHighAccuracy: true });
+  }
+};
   function showPopupNotice(msg) {
   const el = document.getElementById("popupNotice");
   el.textContent = msg;
