@@ -2,202 +2,148 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>ميزاني - تتبع السيارة</title>
+  <title>ميزاني - التتبع التلقائي</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    body { font-family: Tahoma; background: #f4f7fa; color: #333; margin: 0; padding: 0; }
-    header { background: #0a3e7d; color: white; padding: 20px; text-align: center; }
-    section { padding: 20px; }
-    .box { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    #map { height: 300px; border-radius: 10px; margin-top: 10px; }
+    body { font-family: Tahoma; margin:0; padding:20px; background:#f0f0f0; }
+    #status, #metrics { margin:20px 0; font-size:18px; }
     #popupNotice {
-      display: none;
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #0a3e7d;
-      color: white;
-      padding: 15px;
-      border-radius: 10px;
-      z-index: 9999;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-      font-size: 16px;
+      display:none; position:fixed; top:20px; right:20px;
+      background:#0a3e7d; color:white; padding:15px; border-radius:10px;
+      z-index:9999; box-shadow:0 0 10px rgba(0,0,0,0.2); font-size:16px;
     }
+    #map { height:300px; border-radius:10px; }
+    #logs { max-height:200px; overflow:auto; background:#fff; padding:10px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    .log-item { margin-bottom:10px; border-bottom:1px solid #ddd; padding-bottom:8px; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>ميزاني</h1>
-  <p>نظام تتبع الرحلات - تلقائي بالكامل</p>
-</header>
+<h2>ميزاني – التتبع التلقائي</h2>
+<div id="popupNotice">🚗 تم اكتشاف حركة! التتبع بدأ...</div>
+<div id="status">⏳ في انتظار الحركة...</div>
+<div id="metrics">
+  ⏱️ المدة: <span id="time">0 س 0 د 0 ث</span> |
+  🚗 السرعة الحالية: <span id="speed">0</span> كم/س |
+  📏 المسافة المقطوعة: <span id="distance">0.00</span> كم
+</div>
+<div id="map"></div>
 
-<div id="popupNotice">🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...</div>
+<h3>📊 سجل الرحلات السابقة</h3>
+<div id="logs"></div>
 
-<section>
-  <div class="box">
-    <h3>🛰️ التتبع الحي</h3>
-    <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
-    <p>⏱️ الوقت: <span id="duration">00:00</span></p>
-    <p>🚀 السرعة الحالية: <span id="speed">0</span> كم/س</p>
-    <div id="map"></div>
-    <p id="status">🔍 في انتظار الحركة...</p>
-  </div>
-
-  <div class="box">
-    <h3>📊 سجل الرحلات</h3>
-    <div id="logs"></div>
-  </div>
-</section>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let map, pathLine, watchId, tracking = false, startTime, autoStopTimer;
-let coords = [], totalDistance = 0;
-let lastLat = null, lastLon = null, lastMoveTime = null;
+let lastLat=null, lastLon=null, lastMoveTime=null;
+let isTracking=false, startTime=null, totalDist=0;
+let map, polyline, tripLogs = [];
 
-// إعداد الخريطة
+// الشجرة الأساسية لمراقبة الحركة وخريطة Leaflet
 function initMap() {
-  map = L.map('map').setView([25.2, 55.3], 12);
+  map = L.map('map').setView([25.276987,55.296249],13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  pathLine = L.polyline([], { color: 'blue' }).addTo(map);
+  polyline = L.polyline([], {color:'blue'}).addTo(map);
 }
 
-// إظهار نافذة التنبيه
 function showPopup(msg) {
-  const el = document.getElementById("popupNotice");
-  el.textContent = msg;
-  el.style.display = "block";
-  setTimeout(() => el.style.display = "none", 4000);
+  const el = document.getElementById('popupNotice');
+  el.textContent = msg; el.style.display='block';
+  setTimeout(()=> el.style.display='none', 5000);
 }
 
-// حساب المسافة بين نقطتين
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+function haversine(a,b,c,d){
+  const R=6371, dLat=(c - a)*Math.PI/180, dLon=(d - b)*Math.PI/180;
+  const A = Math.sin(dLat/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
 }
 
-// بدء تتبع الرحلة
-function startTracking() {
-  coords = [];
-  totalDistance = 0;
-  pathLine.setLatLngs([]);
-  document.getElementById("distance").textContent = "0";
-  document.getElementById("duration").textContent = "00:00";
-  startTime = Date.now();
-  tracking = true;
-  updateTimer();
+function formatTime(ms){
+  let s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60);
+  s%=60; return `${h} س ${m} د ${s} ث`;
 }
 
-// إيقاف وتتسجيل الرحلة
-function stopTracking() {
-  tracking = false;
-  const endTime = Date.now();
-  const duration = Math.round((endTime - startTime)/1000);
-  const mins = String(Math.floor(duration / 60)).padStart(2, '0');
-  const secs = String(duration % 60).padStart(2, '0');
+function updateMetrics(position) {
+  const {latitude, longitude, speed: s} = position.coords;
+  document.getElementById('speed').textContent = s ? (s*3.6).toFixed(1) : '0';
+}
 
+function endTrip(position){
+  const now = new Date();
+  const duration = now - startTime;
   const log = {
-    distance: totalDistance.toFixed(2),
-    duration: `${mins}:${secs}`,
-    path: [...coords]
+    start: startTime,
+    durationMs: duration,
+    distance: totalDist.toFixed(2),
+    coords: polyline.getLatLngs()
   };
-
-  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-  logs.push(log);
-  localStorage.setItem("driveLogs", JSON.stringify(logs));
+  tripLogs.push(log);
   renderLogs();
 }
 
-// تحديث الوقت
-function updateTimer() {
-  if (!tracking) return;
-  const now = Date.now();
-  const elapsed = Math.floor((now - startTime) / 1000);
-  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
-  const secs = String(elapsed % 60).padStart(2, '0');
-  document.getElementById("duration").textContent = `${mins}:${secs}`;
-  setTimeout(updateTimer, 1000);
-}
-
-// عرض سجل الرحلات
-function renderLogs() {
-  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
-  const container = document.getElementById("logs");
-  container.innerHTML = "";
-
-  logs.forEach((log, i) => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <hr><strong>رحلة #${i+1}</strong><br>
-      ⏱️ المدة: ${log.duration}<br>
-      📏 المسافة: ${log.distance} كم<br>
-      🗺️ نقاط: ${log.path.length}
-    `;
+function renderLogs(){
+  const container = document.getElementById('logs');
+  container.innerHTML = '';
+  tripLogs.forEach((l,i)=>{
+    const div = document.createElement('div');
+    div.className = 'log-item';
+    div.innerHTML = `<strong>رحلة #${i+1}</strong><br>المسافة: ${l.distance} كم – المدة: ${formatTime(l.durationMs)}`;
     container.appendChild(div);
   });
 }
 
-// بدء مراقبة الموقع
-function startWatch() {
-  watchId = navigator.geolocation.watchPosition(pos => {
-    const { latitude, longitude, speed } = pos.coords;
-    map.setView([latitude, longitude], 15);
-    pathLine.addLatLng([latitude, longitude]);
-    coords.push([latitude, longitude]);
-
-    if (tracking) {
-      // حساب المسافة
-      if (lastLat !== null && lastLon !== null) {
-        const d = haversine(lastLat, lastLon, latitude, longitude);
-        totalDistance += d;
-        document.getElementById("distance").textContent = totalDistance.toFixed(2);
-      }
-
-      // السرعة
-      const kmh = speed ? (speed * 3.6).toFixed(1) : "0";
-      document.getElementById("speed").textContent = kmh;
-
-      clearTimeout(autoStopTimer);
-      autoStopTimer = setTimeout(() => {
-        document.getElementById("status").textContent = "⛔ تم الإيقاف التلقائي.";
-        stopTracking();
-      }, 60000); // توقف تلقائي بعد دقيقة توقف
-    }
-
-    if (!tracking && lastLat !== null && lastLon !== null) {
-      const dist = haversine(lastLat, lastLon, latitude, longitude);
-      const timeDiff = Date.now() - (lastMoveTime || Date.now());
-      if (dist > 0.03 && timeDiff < 10000) {
-        showPopup("🚗 تم اكتشاف حركة السيارة، بدأ التتبع تلقائيًا...");
-        document.getElementById("status").textContent = "✅ التتبع نشط...";
-        startTracking();
-      }
-      lastMoveTime = Date.now();
-    }
-
-    lastLat = latitude;
-    lastLon = longitude;
-
-  }, err => {
-    document.getElementById("status").textContent = "📵 خطأ في الموقع";
-  }, { enableHighAccuracy: true });
+function startTracking(pos) {
+  isTracking = true;
+  totalDist = 0;
+  startTime = new Date();
+  polyline.setLatLngs([]);
+  showPopup('🚗 تم اكتشاف حركة! التتبع بدأ...');
+  document.getElementById('status').textContent = '✅ التتبع نشط';
+  initMap();
+  polyline.addLatLng([pos.coords.latitude, pos.coords.longitude]);
 }
 
-// بدء التطبيق
-window.onload = () => {
-  initMap();
-  renderLogs();
-  if (navigator.geolocation) {
-    startWatch();
+function stopTracking(){
+  if (!isTracking) return;
+  isTracking = false;
+  document.getElementById('status').textContent = '⏹️ التتبع متوقف';
+  endTrip();
+}
+
+navigator.geolocation.watchPosition(pos=>{
+  const {latitude, longitude, speed} = pos.coords;
+  const now = Date.now();
+
+  if (!isTracking) {
+    if (lastLat!==null){
+      const d = haversine(lastLat,lastLon,latitude,longitude);
+      if (d>0.03 && now - (lastMoveTime||now) < 10000) {
+        startTracking(pos);
+      }
+      lastMoveTime = now;
+    }
   } else {
-    document.getElementById("status").textContent = "🚫 المتصفح لا يدعم الموقع الجغرافي";
+    polyline.addLatLng([latitude,longitude]);
+    map.panTo([latitude,longitude]);
+    if (lastLat!==null){
+      const d = haversine(lastLat,lastLon,latitude,longitude);
+      if (d>0) totalDist += d;
+    }
+    document.getElementById('distance').textContent = totalDist.toFixed(2);
+    updateMetrics(pos);
+    const elapsed = new Date() - startTime;
+    document.getElementById('time').textContent = formatTime(elapsed);
+    clearTimeout(window.autoStop);
+    window.autoStop = setTimeout(stopTracking, 60000);
   }
-};
+
+  lastLat = latitude;
+  lastLon = longitude;
+}, err=>{
+  document.getElementById('status').textContent = '📵 فشل في تحديد الموقع';
+}, {enableHighAccuracy:true, maximumAge:1000, timeout:5000});
+
+initMap();
 </script>
 </body>
 </html>
