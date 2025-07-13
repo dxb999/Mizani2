@@ -4,9 +4,14 @@
   <meta charset="UTF-8">
   <title>اختبار التتبع التلقائي</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     body { font-family: Tahoma; padding: 20px; background: #f0f0f0; text-align: center; }
-    #status { margin-top: 20px; font-size: 18px; color: #0a3e7d; }
+    #status, #speed, #driveTime { margin-top: 10px; font-size: 18px; color: #0a3e7d; }
     #popupNotice {
       display: none;
       position: fixed;
@@ -20,30 +25,39 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.2);
       font-size: 16px;
     }
+    #map {
+      height: 300px;
+      margin-top: 20px;
+      border-radius: 10px;
+    }
   </style>
 </head>
 <body>
 
 <h2>🚗 اختبار التتبع التلقائي</h2>
 <p>ابدأ المشي أو قيادة السيارة وسيتم اكتشاف الحركة تلقائيًا</p>
+
 <div id="status">⏳ في انتظار الحركة...</div>
+<div id="speed">🚀 السرعة: 0 كم/س</div>
+<div id="driveTime">⏱️ الوقت: 0:00</div>
 <div id="popupNotice">🚗 تم اكتشاف حركة!</div>
+<div id="map"></div>
 
 <script>
 let lastLat = null, lastLon = null, lastMoveTime = null;
 let isTracking = false;
+let startTime = null, timerInterval = null;
+let map, pathLine, pathCoords = [];
 
 function showPopupNotice(msg) {
   const el = document.getElementById("popupNotice");
   el.textContent = msg;
   el.style.display = "block";
-  setTimeout(() => {
-    el.style.display = "none";
-  }, 5000);
+  setTimeout(() => el.style.display = "none", 5000);
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371; // نصف قطر الأرض بالكيلومتر
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 +
@@ -53,10 +67,43 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+function startTimer() {
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const min = Math.floor(elapsed / 60);
+    const sec = elapsed % 60;
+    document.getElementById("driveTime").textContent = `⏱️ الوقت: ${min}:${sec.toString().padStart(2, "0")}`;
+  }, 1000);
+}
+
+function startMapTracking() {
+  map = L.map('map').setView([25.276987, 55.296249], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+  pathCoords = [];
+}
+
+function updateMap(lat, lon) {
+  const newPoint = [lat, lon];
+  pathCoords.push(newPoint);
+  if (!pathLine) {
+    pathLine = L.polyline(pathCoords, { color: 'blue' }).addTo(map);
+  } else {
+    pathLine.setLatLngs(pathCoords);
+  }
+  map.setView(newPoint, 15);
+}
+
 if (navigator.geolocation) {
   navigator.geolocation.watchPosition(pos => {
-    const { latitude, longitude } = pos.coords;
+    const { latitude, longitude, speed } = pos.coords;
     const now = Date.now();
+
+    // السرعة
+    const kmh = speed ? (speed * 3.6).toFixed(1) : 0;
+    document.getElementById("speed").textContent = `🚀 السرعة: ${kmh} كم/س`;
 
     if (lastLat !== null && lastLon !== null) {
       const dist = haversine(lastLat, lastLon, latitude, longitude);
@@ -66,7 +113,11 @@ if (navigator.geolocation) {
         isTracking = true;
         showPopupNotice("🚗 تم اكتشاف حركة! التتبع بدأ...");
         document.getElementById("status").textContent = "✅ تم اكتشاف الحركة!";
+        startTimer();
+        startMapTracking();
       }
+
+      if (isTracking) updateMap(latitude, longitude);
       lastMoveTime = now;
     }
 
