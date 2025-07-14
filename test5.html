@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>🚗 تتبع الرحلات</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { font-family: Tahoma; background: #f4f7fa; padding: 20px; }
+    h2 { text-align: center; color: #0a3e7d; }
+    .box { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .popup { position: fixed; top: 20px; right: 20px; background: #0a3e7d; color: white; padding: 15px; border-radius: 10px; display: none; z-index: 9999; }
+    #map { height: 300px; border-radius: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>🚗 نظام تتبع الرحلات</h2>
+<div id="popup" class="popup">🚗 تم اكتشاف حركة!</div>
+<audio id="beep" src="https://www.soundjay.com/buttons/sounds/beep-07.mp3" preload="auto"></audio>
+
+<div class="box" id="statusBox">
+  <strong>الحالة:</strong> <span id="status">بانتظار الحركة...</span><br>
+  <strong>المدة:</strong> <span id="duration">--</span><br>
+  <strong>المسافة:</strong> <span id="distance">--</span> كم<br>
+  <strong>السرعة القصوى:</strong> <span id="maxSpeed">--</span> كم/س
+</div>
+
+<div class="box" id="mapBox">
+  <h3>📍 المسار الحالي</h3>
+  <div id="map"></div>
+</div>
+
+<div class="box">
+  <h3>📊 الرحلات السابقة</h3>
+  <div id="logs"></div>
+</div>
+
+<script>
+let watchId, startTime, lastLat, lastLon, lastMoveTime, isTracking = false;
+let totalDistance = 0, maxSpeed = 0, pathCoords = [], map, pathLine;
+let tripLogs = [];
+
+function showPopup(text) {
+  const popup = document.getElementById("popup");
+  popup.textContent = text;
+  popup.style.display = "block";
+  setTimeout(() => popup.style.display = "none", 4000);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI/180;
+  const dLon = (lon2 - lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function startTracking() {
+  isTracking = true;
+  totalDistance = 0;
+  maxSpeed = 0;
+  pathCoords = [];
+  startTime = new Date();
+  document.getElementById("beep").play();
+  document.getElementById("status").textContent = "🚀 التتبع بدأ";
+
+  if (map) map.remove();
+  map = L.map('map').setView([25.276987, 55.296249], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  pathLine = L.polyline([], { color: 'blue' }).addTo(map);
+}
+
+function stopTracking() {
+  const now = new Date();
+  const duration = formatDuration(now - startTime);
+  const date = now.toISOString().split("T")[0];
+  const startTimeStr = startTime.toTimeString().split(" ")[0];
+  const endTimeStr = now.toTimeString().split(" ")[0];
+
+  const log = {
+    date, startTime: startTimeStr, endTime: endTimeStr,
+    distance: totalDistance.toFixed(2),
+    maxSpeed: maxSpeed.toFixed(1),
+    duration, path: pathCoords
+  };
+  tripLogs.push(log);
+  localStorage.setItem("tripLogs", JSON.stringify(tripLogs));
+  renderLogs();
+  document.getElementById("status").textContent = "✅ تم حفظ الرحلة";
+  isTracking = false;
+}
+
+function formatDuration(ms) {
+  const sec = Math.floor(ms / 1000);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${h}س ${m}د ${s}ث`;
+}
+
+function renderLogs() {
+  const container = document.getElementById("logs");
+  container.innerHTML = "";
+  tripLogs.forEach((log, i) => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      <strong>📅 ${log.date}</strong><br>
+      🕒 من ${log.startTime} إلى ${log.endTime}<br>
+      ⏱️ المدة: ${log.duration}<br>
+      🚗 المسافة: ${log.distance} كم<br>
+      🚀 السرعة القصوى: ${log.maxSpeed} كم/س<br>
+      <div id="map${i}" style="height:200px;margin-top:10px;"></div>
+    `;
+    container.appendChild(div);
+    const smallMap = L.map(`map${i}`).setView(log.path[0], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(smallMap);
+    L.polyline(log.path, { color: 'red' }).addTo(smallMap);
+  });
+}
+
+function monitorMovement() {
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude, speed } = pos.coords;
+    const now = Date.now();
+
+    if (lastLat && lastLon) {
+      const dist = haversine(lastLat, lastLon, latitude, longitude);
+      const timeDiff = now - (lastMoveTime || now);
+
+      if (dist > 0.03 && !isTracking && timeDiff < 10000) {
+        startTracking();
+        showPopup("🚗 تم اكتشاف حركة!");
+      }
+
+      if (isTracking) {
+        if (dist > 0.005) {
+          totalDistance += dist;
+          document.getElementById("distance").textContent = totalDistance.toFixed(2);
+          document.getElementById("duration").textContent = formatDuration(now - startTime);
+          if (speed && speed > maxSpeed) maxSpeed = speed;
+          document.getElementById("maxSpeed").textContent = maxSpeed.toFixed(1);
+          pathCoords.push([latitude, longitude]);
+          pathLine.setLatLngs(pathCoords);
+          map.setView([latitude, longitude], 15);
+          clearTimeout(window.autoStopTimeout);
+          window.autoStopTimeout = setTimeout(() => {
+            if (isTracking) stopTracking();
+          }, 60000); // ⏹️ توقف تلقائي بعد 60 ثانية
+        }
+      }
+    }
+
+    lastLat = latitude;
+    lastLon = longitude;
+    lastMoveTime = now;
+  }, err => {
+    document.getElementById("status").textContent = "📵 فشل في تحديد الموقع.";
+  }, { enableHighAccuracy: true });
+}
+
+window.onload = () => {
+  const saved = localStorage.getItem("tripLogs");
+  if (saved) tripLogs = JSON.parse(saved);
+  renderLogs();
+  monitorMovement();
+};
+</script>
+
+</body>
+</html>
