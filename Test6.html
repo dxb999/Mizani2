@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>🚗 تتبع الرحلات</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { font-family: Tahoma; padding: 20px; background: #f0f0f0; }
+    #map { height: 300px; border-radius: 10px; margin-top: 10px; }
+    #status, #popupNotice { font-size: 16px; margin-top: 15px; }
+    #popupNotice {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #0a3e7d;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      z-index: 9999;
+    }
+    .log { background: white; margin: 10px 0; padding: 10px; border-radius: 10px; box-shadow: 0 0 5px #ccc; }
+  </style>
+</head>
+<body>
+
+<h2>🚘 تتبع رحلات السيارة</h2>
+<div id="status">📡 بانتظار الحركة...</div>
+<div id="popupNotice">🚗 تم اكتشاف حركة!</div>
+<div id="map"></div>
+<h3>📊 الرحلات السابقة</h3>
+<div id="logs"></div>
+
+<audio id="startSound" src="https://www.soundjay.com/buttons/sounds/beep-07.mp3" preload="auto"></audio>
+
+<script>
+let isTracking = false, path = [], pathLine = null, lastLat = null, lastLon = null;
+let map, watchId, timer, maxSpeed = 0, startTime, stopTimeout;
+let totalDistance = 0;
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI/180;
+  const dLon = (lon2 - lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function showPopup(msg) {
+  const popup = document.getElementById("popupNotice");
+  popup.textContent = msg;
+  popup.style.display = "block";
+  setTimeout(() => popup.style.display = "none", 4000);
+}
+
+function updateMap(lat, lon) {
+  if (!map) {
+    map = L.map('map').setView([lat, lon], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  }
+  const point = [lat, lon];
+  path.push(point);
+  if (!pathLine) {
+    pathLine = L.polyline(path, { color: 'blue' }).addTo(map);
+  } else {
+    pathLine.setLatLngs(path);
+  }
+  map.setView(point, 15);
+}
+
+function stopTracking() {
+  isTracking = false;
+  clearTimeout(stopTimeout);
+  const endTime = new Date();
+  const duration = Math.floor((endTime - startTime) / 1000);
+  const log = {
+    start: startTime.toLocaleString(),
+    end: endTime.toLocaleString(),
+    distance: totalDistance.toFixed(2),
+    duration: formatDuration(duration),
+    maxSpeed: maxSpeed.toFixed(1),
+    path: [...path]
+  };
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  logs.push(log);
+  localStorage.setItem("driveLogs", JSON.stringify(logs));
+  renderLogs();
+  document.getElementById("status").textContent = "✅ تم حفظ الرحلة وحفظ بياناتها.";
+  resetTracking();
+}
+
+function resetTracking() {
+  path = [];
+  pathLine = null;
+  totalDistance = 0;
+  maxSpeed = 0;
+  startTime = null;
+  map && map.remove();
+  map = null;
+}
+
+function startTracking() {
+  isTracking = true;
+  startTime = new Date();
+  document.getElementById("startSound").play();
+  document.getElementById("status").textContent = "🛰️ تتبع الرحلة جارٍ...";
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m} دقيقة ${s} ثانية`;
+}
+
+function renderLogs() {
+  const logs = JSON.parse(localStorage.getItem("driveLogs") || "[]");
+  const container = document.getElementById("logs");
+  container.innerHTML = "";
+  logs.reverse().forEach((log, i) => {
+    const div = document.createElement("div");
+    div.className = "log";
+    div.innerHTML = `
+      <strong>رحلة #${logs.length - i}</strong><br>
+      🕒 من ${log.start} إلى ${log.end}<br>
+      📏 ${log.distance} كم | 🚀 ${log.maxSpeed} كم/س<br>
+      ⏱️ المدة: ${log.duration}<br>
+      <div id="map${i}" style="height:200px; margin-top:10px;"></div>
+    `;
+    container.appendChild(div);
+    setTimeout(() => {
+      const m = L.map(`map${i}`).setView(log.path[0], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+      L.polyline(log.path, { color: 'blue' }).addTo(m);
+      m.fitBounds(L.polyline(log.path).getBounds());
+    }, 100);
+  });
+}
+
+navigator.geolocation.watchPosition(pos => {
+  const { latitude, longitude, speed } = pos.coords;
+  updateMap(latitude, longitude);
+
+  if (!isTracking) {
+    const moved = lastLat !== null && haversine(lastLat, lastLon, latitude, longitude) > 0.03;
+    if (moved) {
+      showPopup("🚗 تم اكتشاف حركة! بدأ التتبع...");
+      startTracking();
+    }
+  } else {
+    if (lastLat !== null) {
+      const dist = haversine(lastLat, lastLon, latitude, longitude);
+      if (dist > 0.005) totalDistance += dist;
+    }
+    if (speed && speed * 3.6 > maxSpeed) maxSpeed = speed * 3.6;
+
+    clearTimeout(stopTimeout);
+    stopTimeout = setTimeout(stopTracking, 60000); // ⏱️ التوقف التلقائي بعد 60 ثانية
+  }
+
+  lastLat = latitude;
+  lastLon = longitude;
+}, err => {
+  document.getElementById("status").textContent = "📵 تعذر تحديد الموقع.";
+}, { enableHighAccuracy: true });
+
+renderLogs();
+</script>
+
+</body>
+</html>
