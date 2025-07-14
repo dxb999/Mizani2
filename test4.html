@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>📍 تتبع السيارة التلقائي</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { font-family: Tahoma; background: #f4f7fa; padding: 20px; }
+    h2 { color: #0a3e7d; text-align: center; }
+    #status { margin-top: 10px; font-weight: bold; color: #0a3e7d; text-align: center; }
+    #map { height: 300px; margin: 20px 0; border-radius: 10px; }
+    .trip-log { background: white; padding: 10px; margin: 10px 0; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    #popupNotice {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #0a3e7d;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      z-index: 9999;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+
+<h2>🚗 تتبع السيارة التلقائي</h2>
+<div id="popupNotice">🚗 تم اكتشاف حركة!</div>
+<div id="status">⏳ في انتظار الحركة...</div>
+<div id="map"></div>
+
+<h3>📊 سجل الرحلات:</h3>
+<div id="tripLogs"></div>
+
+<audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+<script>
+let lastLat = null, lastLon = null, lastMoveTime = null;
+let isTracking = false;
+let watchId, autoStopTimeout;
+let startTime, tripDistance = 0, tripPath = [], map, pathLine;
+let tripLogs = JSON.parse(localStorage.getItem("tripLogs") || "[]");
+
+function showPopupNotice(msg) {
+  const el = document.getElementById("popupNotice");
+  el.textContent = msg;
+  el.style.display = "block";
+  document.getElementById("alertSound").play();
+  setTimeout(() => { el.style.display = "none"; }, 5000);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function initMap() {
+  map = L.map('map').setView([25.276987, 55.296249], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+}
+
+function startTracking() {
+  isTracking = true;
+  startTime = Date.now();
+  tripDistance = 0;
+  tripPath = [];
+  pathLine = null;
+  showPopupNotice("🚗 تم اكتشاف حركة! بدأ التتبع...");
+  document.getElementById("status").textContent = "✅ تتبع نشط...";
+
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude, speed } = pos.coords;
+    tripPath.push([latitude, longitude]);
+
+    if (!pathLine) {
+      pathLine = L.polyline(tripPath, { color: 'blue' }).addTo(map);
+    } else {
+      pathLine.setLatLngs(tripPath);
+    }
+
+    map.setView([latitude, longitude], 16);
+
+    if (lastLat !== null && lastLon !== null) {
+      const dist = haversine(lastLat, lastLon, latitude, longitude);
+      if (dist > 0.01) {
+        tripDistance += dist;
+        clearTimeout(autoStopTimeout);
+        autoStopTimeout = setTimeout(stopTracking, 60000);
+      }
+    }
+
+    lastLat = latitude;
+    lastLon = longitude;
+  }, null, { enableHighAccuracy: true });
+}
+
+function stopTracking() {
+  if (!isTracking) return;
+  isTracking = false;
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  clearTimeout(autoStopTimeout);
+
+  const endTime = Date.now();
+  const durationSec = Math.floor((endTime - startTime) / 1000);
+  const duration = `${Math.floor(durationSec / 60)} د ${durationSec % 60} ث`;
+
+  const trip = {
+    date: new Date().toLocaleString(),
+    distance: tripDistance.toFixed(2),
+    duration,
+    path: tripPath
+  };
+
+  tripLogs.push(trip);
+  localStorage.setItem("tripLogs", JSON.stringify(tripLogs));
+  renderTripLogs();
+  document.getElementById("status").textContent = "⏹️ تم إنهاء التتبع";
+}
+
+function renderTripLogs() {
+  const container = document.getElementById("tripLogs");
+  container.innerHTML = "";
+  tripLogs.forEach((trip, i) => {
+    const div = document.createElement("div");
+    div.className = "trip-log";
+    div.innerHTML = `
+      <strong>رحلة #${i+1} - ${trip.date}</strong><br>
+      🛣️ المسافة: ${trip.distance} كم<br>
+      ⏱️ المدة: ${trip.duration}
+    `;
+    container.appendChild(div);
+  });
+}
+
+function detectMovement() {
+  if (!navigator.geolocation) return;
+  initMap();
+  renderTripLogs();
+
+  navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    const now = Date.now();
+
+    if (lastLat !== null && lastLon !== null) {
+      const dist = haversine(lastLat, lastLon, latitude, longitude);
+      const timeDiff = now - (lastMoveTime || now);
+      if (dist > 0.03 && !isTracking && timeDiff < 10000) {
+        startTracking();
+      }
+      lastMoveTime = now;
+    }
+
+    lastLat = latitude;
+    lastLon = longitude;
+  }, err => {
+    console.error("❌ GPS Error:", err);
+    document.getElementById("status").textContent = "⚠️ لم يتم الحصول على الموقع";
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 5000
+  });
+}
+
+window.onload = detectMovement;
+</script>
+
+</body>
+</html>
