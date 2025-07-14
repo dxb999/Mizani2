@@ -1,0 +1,276 @@
+‏<!DOCTYPE html>
+‏<html lang="ar" dir="rtl">
+‏<head>
+‏  <meta charset="UTF-8" />
+‏  <title>نظام تتبع السيارة</title>
+‏  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+‏  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+‏  <style>
+‏    body { font-family: Tahoma; background: #f0f0f0; margin: 0; padding: 20px; }
+‏    h2 { color: #0a3e7d; text-align: center; }
+‏    .box { background: white; padding: 15px; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+‏    #map { height: 300px; border-radius: 10px; margin-top: 10px; }
+‏    #popupNotice {
+‏      display: none;
+‏      position: fixed;
+‏      top: 20px;
+‏      right: 20px;
+‏      background: #0a3e7d;
+‏      color: white;
+‏      padding: 15px;
+‏      border-radius: 10px;
+‏      z-index: 9999;
+‏      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+‏      font-size: 16px;
+    }
+‏    button {
+‏      padding: 10px;
+‏      background: #0a3e7d;
+‏      color: white;
+‏      border: none;
+‏      border-radius: 6px;
+‏      margin-top: 10px;
+‏      cursor: pointer;
+‏      width: 100%;
+    }
+‏    button:hover {
+‏      background: #083463;
+    }
+‏    .log {
+‏      background: #f9f9f9;
+‏      margin-top: 10px;
+‏      padding: 10px;
+‏      border-radius: 6px;
+    }
+‏  </style>
+‏</head>
+‏<body>
+‏  <div id="popupNotice">🚗 تم اكتشاف حركة السيارة!</div>
+‏  <h2>🚘 نظام تتبع السيارة الذكي</h2>
+
+‏  <div class="box">
+‏    <label for="carSelect">🚙 اختر نوع السيارة:</label>
+‏    <select id="carSelect">
+‏      <option value="رنج روفر">رنج روفر</option>
+‏      <option value="كامري">كامري</option>
+‏      <option value="تويوتا">تويوتا</option>
+‏    </select>
+‏  </div>
+
+‏  <div class="box">
+‏    <h3>🔍 بيانات التتبع</h3>
+‏    <p>السرعة الحالية: <span id="speed">0</span> كم/س</p>
+‏    <p>المسافة المقطوعة: <span id="distance">0</span> كم</p>
+‏    <p>الزمن: <span id="duration">00:00:00</span></p>
+‏  </div>
+
+‏  <div class="box">
+‏    <h3>🗺️ خريطة المسار</h3>
+‏    <div id="map"></div>
+‏  </div>
+
+‏  <div class="box">
+‏    <h3>📑 الرحلات السابقة</h3>
+‏    <div id="tripLogs"></div>
+‏    <button onclick="clearTrips()">🗑️ حذف كل الرحلات</button>
+‏  </div>
+
+  <!-- صوت للتنبيه -->
+‏  <audio id="startSound" src="https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3" preload="auto"></audio>
+
+‏  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+‏  <script>
+
+‏let map, pathLine, iconMarker;
+‏let pathCoords = [];
+‏let totalDistance = 0;
+‏let maxSpeed = 0;
+‏let startTime = null;
+‏let lastPosition = null;
+‏let isTracking = false;
+‏let trackingTimer = null;
+‏let autoStopTimeout = null;
+‏let tripLogs = JSON.parse(localStorage.getItem("tripLogs") || "[]");
+
+‏function initMap() {
+‏  map = L.map('map').setView([25.276987, 55.296249], 13);
+‏  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+‏    attribution: '&copy; OpenStreetMap contributors'
+‏  }).addTo(map);
+}
+
+‏function haversine(lat1, lon1, lat2, lon2) {
+‏  const R = 6371;
+‏  const dLat = (lat2 - lat1) * Math.PI / 180;
+‏  const dLon = (lon2 - lon1) * Math.PI / 180;
+‏  const a = Math.sin(dLat / 2) ** 2 +
+‏            Math.cos(lat1 * Math.PI / 180) *
+‏            Math.cos(lat2 * Math.PI / 180) *
+‏            Math.sin(dLon / 2) ** 2;
+‏  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+‏  return R * c;
+}
+
+‏function startTracking() {
+‏  if (isTracking) return;
+
+‏  isTracking = true;
+‏  startTime = new Date();
+‏  totalDistance = 0;
+‏  pathCoords = [];
+‏  maxSpeed = 0;
+‏  pathLine = null;
+
+‏  showPopup("🚗 تم اكتشاف حركة السيارة!");
+‏  document.getElementById("startSound").play();
+
+‏  if (iconMarker) map.removeLayer(iconMarker);
+
+‏  trackingTimer = setInterval(updateDuration, 1000);
+
+‏  navigator.geolocation.watchPosition(pos => {
+‏    const { latitude, longitude, speed } = pos.coords;
+‏    const latLng = [latitude, longitude];
+
+‏    if (!iconMarker) {
+‏      iconMarker = L.marker(latLng, {
+‏        icon: L.divIcon({ html: "🚗", className: "", iconSize: [30, 30] })
+‏      }).addTo(map);
+‏    } else {
+‏      iconMarker.setLatLng(latLng);
+    }
+
+‏    map.setView(latLng, 16);
+‏    pathCoords.push(latLng);
+
+‏    if (!pathLine) {
+‏      pathLine = L.polyline(pathCoords, { color: 'blue' }).addTo(map);
+‏    } else {
+‏      pathLine.setLatLngs(pathCoords);
+    }
+
+‏    if (lastPosition) {
+‏      const dist = haversine(lastPosition.lat, lastPosition.lon, latitude, longitude);
+‏      if (dist > 0.01) {
+‏        totalDistance += dist;
+‏        document.getElementById("distance").textContent = totalDistance.toFixed(2);
+‏        clearTimeout(autoStopTimeout);
+‏        autoStopTimeout = setTimeout(stopTracking, 60000);
+      }
+    }
+
+‏    lastPosition = { lat: latitude, lon: longitude };
+
+‏    const kmh = (speed * 3.6).toFixed(1);
+‏    if (!isNaN(kmh)) {
+‏      document.getElementById("speed").textContent = kmh;
+‏      if (parseFloat(kmh) > maxSpeed) maxSpeed = parseFloat(kmh);
+    }
+‏  }, err => {
+‏    console.error("خطأ في تحديد الموقع:", err);
+‏  }, { enableHighAccuracy: true });
+}
+
+‏function stopTracking() {
+‏  if (!isTracking) return;
+‏  isTracking = false;
+‏  clearInterval(trackingTimer);
+‏  clearTimeout(autoStopTimeout);
+
+‏  const endTime = new Date();
+‏  const duration = Math.floor((endTime - startTime) / 1000);
+‏  const hours = String(Math.floor(duration / 3600)).padStart(2, '0');
+‏  const minutes = String(Math.floor((duration % 3600) / 60)).padStart(2, '0');
+‏  const seconds = String(duration % 60).padStart(2, '0');
+
+‏  const car = document.getElementById("carSelect").value;
+
+‏  tripLogs.push({
+‏    car,
+‏    date: new Date().toLocaleDateString(),
+‏    start: startTime.toLocaleTimeString(),
+‏    end: endTime.toLocaleTimeString(),
+‏    distance: totalDistance.toFixed(2),
+‏    maxSpeed: maxSpeed.toFixed(1),
+‏    duration: `${hours}:${minutes}:${seconds}`,
+‏    path: [...pathCoords]
+  });
+
+‏  localStorage.setItem("tripLogs", JSON.stringify(tripLogs));
+‏  renderLogs();
+}
+
+‏function updateDuration() {
+‏  const now = new Date();
+‏  const seconds = Math.floor((now - startTime) / 1000);
+‏  const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+‏  const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+‏  const s = String(seconds % 60).padStart(2, '0');
+‏  document.getElementById("duration").textContent = `${h}:${m}:${s}`;
+}
+
+‏function renderLogs() {
+‏  const container = document.getElementById("tripLogs");
+‏  container.innerHTML = "";
+‏  tripLogs.forEach((trip, index) => {
+‏    const div = document.createElement("div");
+‏    div.className = "log";
+‏    div.innerHTML = `
+‏      <strong>🚘 ${trip.car}</strong><br>
+‏      📅 ${trip.date} | ⏰ ${trip.start} → ${trip.end}<br>
+‏      🛣️ ${trip.distance} كم | ⏱️ ${trip.duration} | 🚀 ${trip.maxSpeed} كم/س<br>
+‏      <button onclick="viewTrip(${index})">عرض على الخريطة</button>
+‏      <button onclick="deleteTrip(${index})">🗑️ حذف</button>
+    `;
+‏    container.appendChild(div);
+  });
+}
+
+‏function deleteTrip(index) {
+‏  if (confirm("هل تريد حذف هذه الرحلة؟")) {
+‏    tripLogs.splice(index, 1);
+‏    localStorage.setItem("tripLogs", JSON.stringify(tripLogs));
+‏    renderLogs();
+  }
+}
+
+‏function clearTrips() {
+‏  if (confirm("هل تريد حذف جميع الرحلات؟")) {
+‏    tripLogs = [];
+‏    localStorage.removeItem("tripLogs");
+‏    renderLogs();
+  }
+}
+
+‏function viewTrip(index) {
+‏  const trip = tripLogs[index];
+‏  if (!map) return;
+‏  if (pathLine) map.removeLayer(pathLine);
+‏  if (iconMarker) map.removeLayer(iconMarker);
+‏  pathLine = L.polyline(trip.path, { color: 'red' }).addTo(map);
+‏  map.fitBounds(pathLine.getBounds());
+}
+
+‏function showPopup(msg) {
+‏  const el = document.getElementById("popupNotice");
+‏  el.textContent = msg;
+‏  el.style.display = "block";
+‏  setTimeout(() => el.style.display = "none", 4000);
+}
+
+‏window.onload = () => {
+‏  initMap();
+‏  renderLogs();
+
+‏  navigator.geolocation.watchPosition(pos => {
+‏    const { latitude, longitude, speed } = pos.coords;
+‏    if ((speed && speed * 3.6 > 5) || !isTracking) {
+‏      startTracking();
+    }
+‏  }, err => {
+‏    console.warn("GPS غير متوفر:", err);
+‏  }, { enableHighAccuracy: true });
+};
+‏  </script>
+‏</body>
+‏</html>
