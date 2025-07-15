@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>نظام تتبع السيارة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { font-family: Tahoma; background: #f5f7fa; margin: 0; padding: 20px; }
+    h2 { color: #0a3e7d; }
+    .box { background: white; padding: 15px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    #map { height: 300px; border-radius: 8px; margin-top: 10px; }
+    .popup { background: #0a3e7d; color: white; padding: 10px; border-radius: 8px; position: fixed; top: 20px; right: 20px; display: none; z-index: 9999; }
+  </style>
+</head>
+<body>
+
+<div class="popup" id="popup">🚗 تم اكتشاف حركة السيارة!</div>
+
+<div class="box">
+  <h2>🚘 بيانات السيارة</h2>
+  <select id="carType" onchange="loadCarData()">
+    <option value="range">رنج روفر</option>
+    <option value="camry">كامري</option>
+  </select>
+  <br><br>
+  <label>عداد الكيلومترات:</label>
+  <input type="number" id="currentKm" placeholder="كم الحالي" onchange="saveCarData()">
+  <label>المسافة المتبقية بالبترول:</label>
+  <input type="number" id="fuelLeft" placeholder="المسافة الممكنة" onchange="saveCarData()">
+</div>
+
+<div class="box">
+  <h2>🛰️ تتبع مباشر</h2>
+  <p id="status">الحالة: 📡 في وضع الانتظار...</p>
+  <p>السرعة الحالية: <span id="speed">0</span> كم/س</p>
+  <p>الزمن منذ الانطلاق: <span id="duration">0</span></p>
+  <p>المسافة المقطوعة: <span id="distance">0.00</span> كم</p>
+  <div id="map"></div>
+</div>
+
+<div class="box">
+  <h2>📊 سجل الرحلات</h2>
+  <div id="logs"></div>
+  <button onclick="clearLogs()">🗑️ حذف جميع الرحلات</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/743/743007.png', iconSize: [32, 32] });
+
+let map, marker, polyline;
+let coords = [], isTracking = false;
+let startTime, lastLat = null, lastLon = null;
+let distance = 0, maxSpeed = 0, timer;
+let autoStopTimer = null;
+let lastCarType = 'range';
+
+// 🚗 عرض تنبيه
+function showPopup(msg) {
+  const popup = document.getElementById("popup");
+  popup.textContent = msg;
+  popup.style.display = "block";
+  setTimeout(() => popup.style.display = "none", 4000);
+}
+
+// 📍 إعداد الخريطة
+function initMap() {
+  map = L.map('map').setView([25.2, 55.3], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+}
+
+// ⛽ حفظ البيانات حسب نوع السيارة
+function saveCarData() {
+  const car = document.getElementById("carType").value;
+  localStorage.setItem(`${car}_km`, document.getElementById("currentKm").value);
+  localStorage.setItem(`${car}_fuel`, document.getElementById("fuelLeft").value);
+}
+
+// 📦 تحميل البيانات حسب نوع السيارة
+function loadCarData() {
+  const car = document.getElementById("carType").value;
+  document.getElementById("currentKm").value = localStorage.getItem(`${car}_km`) || "0";
+  document.getElementById("fuelLeft").value = localStorage.getItem(`${car}_fuel`) || "0";
+  lastCarType = car;
+}
+
+// 🧭 حساب المسافة
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ⏱️ بدء التتبع
+function startTracking() {
+  isTracking = true;
+  startTime = Date.now();
+  coords = [];
+  distance = 0;
+  maxSpeed = 0;
+  document.getElementById("status").textContent = "الحالة: ✅ التتبع نشط...";
+  if (polyline) map.removeLayer(polyline);
+  timer = setInterval(updateDuration, 1000);
+}
+
+// 🛑 التوقف التلقائي
+function stopTracking() {
+  isTracking = false;
+  clearInterval(timer);
+  clearTimeout(autoStopTimer);
+  const durationSec = Math.floor((Date.now() - startTime) / 1000);
+  const prevKm = parseFloat(document.getElementById("currentKm").value || "0");
+  const prevFuel = parseFloat(document.getElementById("fuelLeft").value || "0");
+
+  const log = {
+    date: new Date().toLocaleString(),
+    car: lastCarType,
+    distance: distance.toFixed(2),
+    duration: formatTime(durationSec),
+    speed: maxSpeed.toFixed(1),
+    prevKm: prevKm.toFixed(2),
+    prevFuel: prevFuel.toFixed(2),
+    path: coords
+  };
+
+  // تحديث عداد السيارة والبترول
+  document.getElementById("currentKm").value = (prevKm + distance).toFixed(2);
+  document.getElementById("fuelLeft").value = Math.max(prevFuel - distance, 0).toFixed(2);
+  saveCarData();
+
+  // حفظ السجل
+  const logs = JSON.parse(localStorage.getItem("trip_logs") || "[]");
+  logs.push(log);
+  localStorage.setItem("trip_logs", JSON.stringify(logs));
+  showLogs();
+  document.getElementById("status").textContent = "الحالة: 💤 تم حفظ الرحلة.";
+}
+
+// ⏱️ تحديث الزمن
+function updateDuration() {
+  const seconds = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById("duration").textContent = formatTime(seconds);
+}
+
+// ⌚ تحويل الزمن
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m} دقيقة ${s} ثانية`;
+}
+
+// 📋 عرض الرحلات
+function showLogs() {
+  const logs = JSON.parse(localStorage.getItem("trip_logs") || "[]");
+  const container = document.getElementById("logs");
+  container.innerHTML = "";
+  logs.reverse().forEach((log, i) => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      🚗 <strong>نوع السيارة:</strong> ${log.car}<br>
+      🗓️ <strong>التاريخ:</strong> ${log.date}<br>
+      ⏱️ <strong>المدة:</strong> ${log.duration}<br>
+      🛣️ <strong>المسافة:</strong> ${log.distance} كم<br>
+      🚀 <strong>أقصى سرعة:</strong> ${log.speed} كم/س<br>
+      🔢 <strong>عداد السيارة السابق:</strong> ${log.prevKm}<br>
+      ⛽ <strong>عداد البترول السابق:</strong> ${log.prevFuel} كم<br>
+      🗺️ <a href="#" onclick='showMap(${JSON.stringify(log.path)})'>عرض المسار</a>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// 🗺️ عرض خريطة المسار
+function showMap(path) {
+  if (!map) return;
+  if (polyline) map.removeLayer(polyline);
+  polyline = L.polyline(path, { color: 'blue' }).addTo(map);
+  map.fitBounds(polyline.getBounds());
+}
+
+// ❌ حذف الرحلات
+function clearLogs() {
+  if (confirm("هل تريد حذف جميع الرحلات؟")) {
+    localStorage.removeItem("trip_logs");
+    showLogs();
+  }
+}
+
+// 📦 بدء تشغيل GPS
+if ("geolocation" in navigator) {
+  initMap();
+  loadCarData();
+  showLogs();
+  navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude, speed } = pos.coords;
+    if (!marker) {
+      marker = L.marker([latitude, longitude], { icon: carIcon }).addTo(map);
+    } else {
+      marker.setLatLng([latitude, longitude]);
+    }
+    coords.push([latitude, longitude]);
+    map.setView([latitude, longitude], 15);
+
+    const kmh = ((speed || 0) * 3.6).toFixed(1);
+    document.getElementById("speed").textContent = kmh;
+    if (parseFloat(kmh) > maxSpeed) maxSpeed = parseFloat(kmh);
+
+    if (lastLat !== null && lastLon !== null) {
+      const d = getDistance(lastLat, lastLon, latitude, longitude);
+      if (d > 0.01) {
+        distance += d;
+        document.getElementById("distance").textContent = distance.toFixed(2);
+        if (!isTracking) {
+          showPopup("🚗 تم اكتشاف حركة السيارة!");
+          startTracking();
+        }
+        clearTimeout(autoStopTimer);
+        autoStopTimer = setTimeout(() => {
+          if (isTracking) stopTracking();
+        }, 30000);
+      }
+    }
+    lastLat = latitude;
+    lastLon = longitude;
+  }, err => {
+    document.getElementById("status").textContent = "الحالة: 📵 فشل تحديد الموقع.";
+  }, { enableHighAccuracy: true });
+} else {
+  alert("المتصفح لا يدعم تتبع الموقع.");
+}
+</script>
+</body>
+</html>
