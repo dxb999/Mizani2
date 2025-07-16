@@ -184,43 +184,6 @@ function startTracking() {
   });
 }
 
-// التعامل مع تحديث الموقع
-function handlePosition(pos) {
-  const lat = pos.coords.latitude;
-  const lon = pos.coords.longitude;
-  const speed = (pos.coords.speed || 0) * 3.6; // m/s to km/h
-  document.getElementById("speed").textContent = speed.toFixed(1);
-
-  if (speed > 3 && !tracking) {
-    tracking = true;
-    startTime = Date.now();
-    totalDistance = 0;
-    maxSpeed = 0;
-    showPopup("🚗 تم اكتشاف حركة السيارة!");
-  }
-
-  if (tracking) {
-    maxSpeed = Math.max(maxSpeed, speed);
-
-    if (lastPosition) {
-      const dist = getDistance(lat, lon, lastPosition.lat, lastPosition.lon);
-      totalDistance += dist;
-      document.getElementById("distance").textContent = totalDistance.toFixed(2);
-    }
-
-    const duration = Math.floor((Date.now() - startTime) / 1000);
-    document.getElementById("duration").textContent = formatTime(duration);
-  }
-
-  document.getElementById("status").textContent = tracking
-    ? "🚗 التتبع جارٍ..."
-    : "📡 في وضع الانتظار...";
-
-  lastPosition = { lat, lon };
-  marker.setLatLng([lat, lon]);
-  polyline.addLatLng([lat, lon]);
-  map.setView([lat, lon], 16);
-}
 
 // تنسيق الوقت
 function formatTime(seconds) {
@@ -461,11 +424,7 @@ function showAlerts() {
 
   if (!found) alerts.innerHTML = "✅ لا توجد تنبيهات حالياً.";
 }
-window.onload = function() {
-  loadCarData();
-  showMaintenance();
-  showAlerts();
-}
+
 </script>
 </body>
 </html>
