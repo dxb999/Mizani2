@@ -109,6 +109,240 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+ 
+// بيانات التتبع
+let watchId = null;
+let lastPosition = null;
+let tracking = false;
+let startTime = null;
+let totalDistance = 0;
+let maxSpeed = 0;
+let carIcon = null;
+let polyline = null;
+
+// تحميل الخريطة عند بداية التتبع
+let map = L.map('map').setView([24.4667, 54.3667], 12); // نقطة أولية بأبوظبي
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// أيقونة سيارة
+carIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/743/743988.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20]
+});
+let marker = L.marker([0, 0], { icon: carIcon }).addTo(map);
+polyline = L.polyline([], { color: 'blue' }).addTo(map);
+
+// حساب المسافة بين نقطتين
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) *
+            Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// بدء التتبع التلقائي
+function startTracking() {
+  if (watchId) return;
+  watchId = navigator.geolocation.watchPosition(handlePosition, console.error, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 5000
+  });
+}
+
+// التعامل مع تحديث الموقع
+function handlePosition(pos) {
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
+  const speed = (pos.coords.speed || 0) * 3.6; // m/s to km/h
+  document.getElementById("speed").textContent = speed.toFixed(1);
+
+  if (speed > 3 && !tracking) {
+    tracking = true;
+    startTime = Date.now();
+    totalDistance = 0;
+    maxSpeed = 0;
+    showPopup("🚗 تم اكتشاف حركة السيارة!");
+  }
+
+  if (tracking) {
+    maxSpeed = Math.max(maxSpeed, speed);
+
+    if (lastPosition) {
+      const dist = getDistance(lat, lon, lastPosition.lat, lastPosition.lon);
+      totalDistance += dist;
+      document.getElementById("distance").textContent = totalDistance.toFixed(2);
+    }
+
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById("duration").textContent = formatTime(duration);
+  }
+
+  document.getElementById("status").textContent = tracking
+    ? "🚗 التتبع جارٍ..."
+    : "📡 في وضع الانتظار...";
+
+  lastPosition = { lat, lon };
+  marker.setLatLng([lat, lon]);
+  polyline.addLatLng([lat, lon]);
+  map.setView([lat, lon], 16);
+}
+
+// تنسيق الوقت
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m} دقيقة ${s} ثانية`;
+}
+
+// عرض نافذة التنبيه
+function showPopup(msg) {
+  const popup = document.getElementById("popup");
+  popup.textContent = msg;
+  popup.style.display = "block";
+  setTimeout(() => popup.style.display = "none", 3000);
+}
+
+// تشغيل التتبع عند تحميل الصفحة
+window.onload = function () {
+  loadCarData();
+  showMaintenance();
+  showAlerts();
+  startTracking();
+};
+ let stopTimeout = null;
+
+// عند كل موقع يتم التحقق من الحركة
+function handlePosition(pos) {
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
+  const speed = (pos.coords.speed || 0) * 3.6;
+
+  document.getElementById("speed").textContent = speed.toFixed(1);
+
+  if (speed > 3 && !tracking) {
+    tracking = true;
+    startTime = Date.now();
+    totalDistance = 0;
+    maxSpeed = 0;
+    lastPosition = null;
+    polyline.setLatLngs([]);
+    stopTimeout = null;
+    showPopup("🚗 تم اكتشاف حركة السيارة!");
+  }
+
+  if (tracking) {
+    maxSpeed = Math.max(maxSpeed, speed);
+    if (lastPosition) {
+      const dist = getDistance(lat, lon, lastPosition.lat, lastPosition.lon);
+      totalDistance += dist;
+      document.getElementById("distance").textContent = totalDistance.toFixed(2);
+    }
+
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById("duration").textContent = formatTime(duration);
+
+    // إذا السرعة انخفضت لفترة، نحسبها كتوقف
+    if (speed < 3) {
+      if (!stopTimeout) {
+        stopTimeout = setTimeout(() => {
+          if (tracking) saveTrip();
+        }, 30000); // 30 ثانية
+      }
+    } else {
+      clearTimeout(stopTimeout);
+      stopTimeout = null;
+    }
+  }
+
+  document.getElementById("status").textContent = tracking
+    ? "🚗 التتبع جارٍ..."
+    : "📡 في وضع الانتظار...";
+
+  lastPosition = { lat, lon };
+  marker.setLatLng([lat, lon]);
+  polyline.addLatLng([lat, lon]);
+  map.setView([lat, lon], 16);
+}
+
+// حفظ بيانات الرحلة
+function saveTrip() {
+  const endTime = new Date();
+  const car = document.getElementById("carType").value;
+  const prevKm = parseFloat(localStorage.getItem(`${car}_km`) || "0");
+  const prevFuel = parseFloat(localStorage.getItem(`${car}_fuel`) || "0");
+
+  const duration = Math.floor((Date.now() - startTime) / 1000);
+  const newKm = prevKm + totalDistance;
+  const newFuel = Math.max(prevFuel - totalDistance, 0);
+
+  const record = {
+    car,
+    date: endTime.toLocaleString(),
+    duration: formatTime(duration),
+    distance: totalDistance.toFixed(2),
+    maxSpeed: maxSpeed.toFixed(1),
+    prevKm: prevKm.toFixed(0),
+    prevFuel: prevFuel.toFixed(0)
+  };
+
+  let trips = JSON.parse(localStorage.getItem("trip_logs") || "[]");
+  trips.push(record);
+  localStorage.setItem("trip_logs", JSON.stringify(trips));
+
+  // تحديث العدادات
+  localStorage.setItem(`${car}_km`, newKm.toFixed(0));
+  localStorage.setItem(`${car}_fuel`, newFuel.toFixed(0));
+  document.getElementById("currentKm").value = newKm.toFixed(0);
+  document.getElementById("fuelLeft").value = newFuel.toFixed(0);
+
+  tracking = false;
+  startTime = null;
+  totalDistance = 0;
+  maxSpeed = 0;
+  stopTimeout = null;
+  document.getElementById("duration").textContent = "0";
+  document.getElementById("distance").textContent = "0.00";
+  document.getElementById("speed").textContent = "0";
+
+  showPopup("✅ تم حفظ الرحلة تلقائيًا");
+  showTripLogs();
+}
+
+// عرض سجل الرحلات
+function showTripLogs() {
+  const car = document.getElementById("carType").value;
+  const logs = JSON.parse(localStorage.getItem("trip_logs") || "[]").filter(r => r.car === car);
+  const container = document.getElementById("logs");
+  container.innerHTML = "";
+
+  if (logs.length === 0) {
+    container.innerHTML = "🚧 لا توجد رحلات محفوظة بعد.";
+    return;
+  }
+
+  logs.reverse().forEach(r => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      📅 ${r.date}<br>
+      ⏱️ المدة: ${r.duration}<br>
+      🛣️ المسافة: ${r.distance} كم<br>
+      🚀 السرعة القصوى: ${r.maxSpeed} كم/س<br>
+      🔢 عداد البداية: ${r.prevKm} كم<br>
+      ⛽ البترول قبل الرحلة: ${r.prevFuel} كم`;
+    container.appendChild(div);
+  });
+}
+  
 function showTab(tabId) {
   document.querySelectorAll(".tab-content").forEach(div => div.classList.remove("active"));
   document.getElementById(tabId).classList.add("active");
@@ -127,6 +361,7 @@ function loadCarData() {
   document.getElementById("fuelLeft").value = localStorage.getItem(`${car}_fuel`) || "0";
   const imgData = localStorage.getItem(`${car}_image`);
   document.getElementById("carImagePreview").src = imgData || "";
+  showTripLogs();
 }
 function loadCarImage(event) {
   const car = document.getElementById("carType").value;
