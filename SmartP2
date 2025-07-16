@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>نظام تتبع السيارة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { font-family: Tahoma; background: #f5f7fa; margin: 0; padding: 20px; }
+    h2 { color: #0a3e7d; }
+    .box { background: white; padding: 15px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+
+    .container { display: flex; gap: 20px; }
+    .sidebar {
+      width: 100%;
+      background: #e3e9f0;
+      border-radius: 10px;
+      padding: 10px;
+      height: fit-content;
+    }
+    .sidebar button {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 10px;
+      margin-bottom: 5px;
+      text-align: right;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .sidebar button.active {
+      background-color: #0a3e7d;
+      color: white;
+      font-weight: bold;
+    }
+    .tab-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: #e3e9f0;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.tab-bar .tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 8px;
+  text-align: center;
+  transition: 0.3s;
+}
+.tab-bar .tab-btn.active {
+  background-color: #0a3e7d;
+  color: white;
+  font-weight: bold;
+}
+    .content-area { flex: 1; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    #map { height: 300px; border-radius: 8px; margin-top: 10px; }
+    .popup { background: #0a3e7d; color: white; padding: 10px; border-radius: 8px; position: fixed; top: 20px; right: 20px; display: none; z-index: 9999; }
+    img#carImagePreview { width: 100%; max-height: 200px; object-fit: cover; margin-top: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="popup" id="popup">🚗 تم اكتشاف حركة السيارة!</div>
+
+<div class="box" id="liveTrackingBox">
+  <h2>🛰️ تتبع مباشر</h2>
+  <p id="status">الحالة: 📡 في وضع الانتظار...</p>
+  <p>السرعة الحالية: <span id="speed">0</span> كم/س</p>
+  <p>الزمن منذ الانطلاق: <span id="duration">0</span></p>
+  <p>المسافة المقطوعة: <span id="distance">0.00</span> كم</p>
+  <div id="map"></div>
+</div>
+
+
+ 
+<div class="sidebar">
+  <button class="tab-btn active" onclick="showTab('carData')">🚘 بيانات السيارة</button>
+  <button class="tab-btn" onclick="showTab('tripLogs')">📊 سجل الرحلات</button>
+  <button class="tab-btn" onclick="showTab('maintenance')">🛠️ مواعيد الصيانة</button>
+  <button class="tab-btn" onclick="showTab('alerts')">🔔 التنبيهات</button>
+</div>
+  
+  <div class="container">
+
+
+  <div class="content-area">
+    <div id="carData" class="tab-content active">
+      <h2>🚘 بيانات السيارة</h2>
+      <input type="file" accept="image/*" onchange="loadCarImage(event)">
+      <img id="carImagePreview" src="" alt="صورة السيارة"><br><br>
+
+<label>نوع السيارة:</label>
+<select id="carType" onchange="loadCarData(); showMaintenance(); showAlerts(); showTripLogs();">
+  <!-- السيارات ستُملأ ديناميكياً -->
+</select><br><br>
+
+<input type="text" id="newCarName" placeholder="اسم سيارة جديدة">
+<button onclick="addNewCar()">➕ إضافة سيارة</button><br><br>
+      <label>عداد الكيلومترات:</label>
+      <input type="number" id="currentKm" placeholder="كم الحالي" onchange="saveCarData(); showAlerts();"><br><br>
+      <label>المسافة المتبقية بالبترول:</label>
+      <input type="number" id="fuelLeft" placeholder="المسافة الممكنة" onchange="saveCarData()">
+    </div>
+
+    <div id="tripLogs" class="tab-content">
+      <h2>📊 سجل الرحلات</h2>
+      <div id="logs">🚧 سيتم ربط سجل الرحلات لاحقاً</div>
+    </div>
+
+    <div id="maintenance" class="tab-content">
+      <h2>🛠️ مواعيد الصيانة</h2>
+      <div class="box">
+        <label>نوع الصيانة:</label>
+        <input type="text" id="maintType" placeholder="مثال: تغيير زيت"><br><br>
+        <label>عند كم كم:</label>
+        <input type="number" id="maintKm"><br><br>
+        <label>📅 التاريخ:</label>
+        <input type="date" id="maintDate"><br><br>
+        <button onclick="saveMaintenance()">💾 حفظ الصيانة</button>
+      </div>
+      <div id="maintList"></div>
+    </div>
+
+    <div id="alerts" class="tab-content">
+      <h2>🔔 التنبيهات</h2>
+      <div id="alertsContainer">⚠️ لا توجد تنبيهات حاليًا.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+ 
+// بيانات التتبع
+let watchId = null;
+let lastPosition = null;
+let tracking = false;
+let startTime = null;
+let totalDistance = 0;
+let maxSpeed = 0;
+let carIcon = null;
+let polyline = null;
+
+// تحميل الخريطة عند بداية التتبع
+let map = L.map('map').setView([24.4667, 54.3667], 12); // نقطة أولية بأبوظبي
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+function addNewCar() {
+  const name = document.getElementById("newCarName").value.trim();
+  if (!name) {
+    alert("🚫 أدخل اسم السيارة أولاً");
+    return;
+  }
+
+  let cars = JSON.parse(localStorage.getItem("car_list") || "[]");
+
+  if (cars.includes(name)) {
+    alert("⚠️ السيارة موجودة مسبقًا");
+    return;
+  }
+
+  cars.push(name);
+  localStorage.setItem("car_list", JSON.stringify(cars));
+
+  document.getElementById("newCarName").value = "";
+  updateCarDropdown(name); // إعادة تحميل القائمة وتحديد السيارة الجديدة
+  alert("✅ تم إضافة السيارة");
+}
+
+function updateCarDropdown(selectedCar = null) {
+  const carTypeSelect = document.getElementById("carType");
+  carTypeSelect.innerHTML = "";
+
+  let cars = JSON.parse(localStorage.getItem("car_list") || "[]");
+
+  // لو لم يكن هناك سيارات محفوظة، نبدأ بسيارتين افتراضيتين
+  if (cars.length === 0) {
+    cars = ["رنج روفر", "كامري"];
+    localStorage.setItem("car_list", JSON.stringify(cars));
+  }
+
+  cars.forEach(car => {
+    const option = document.createElement("option");
+    option.value = car;
+    option.textContent = car;
+    carTypeSelect.appendChild(option);
+  });
+
+  carTypeSelect.value = selectedCar || cars[0];
+  loadCarData();
+  showMaintenance();
+  showAlerts();
+  showTripLogs();
+}
+
+// أيقونة سيارة
+carIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854866.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20]
+});
+let marker = L.marker([0, 0], { icon: carIcon }).addTo(map);
+polyline = L.polyline([], { color: 'blue' }).addTo(map);
+
+// حساب المسافة بين نقطتين
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) *
+            Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// بدء التتبع التلقائي
+function startTracking() {
+  if (watchId) return;
+  watchId = navigator.geolocation.watchPosition(handlePosition, console.error, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 5000
+  });
+}
+
+
+// تنسيق الوقت
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m} دقيقة ${s} ثانية`;
+}
+
+// عرض نافذة التنبيه
+function showPopup(msg) {
+  const popup = document.getElementById("popup");
+  popup.textContent = msg;
+  popup.style.display = "block";
+  setTimeout(() => popup.style.display = "none", 3000);
+}
+
+// تشغيل التتبع عند تحميل الصفحة
+window.onload = function () {
+  updateCarDropdown();
+  showMaintenance();
+  showAlerts();
+  startTracking();
+};
+ let stopTimeout = null;
+
+// عند كل موقع يتم التحقق من الحركة
+function handlePosition(pos) {
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
+  const speed = (pos.coords.speed || 0) * 3.6;
+
+  document.getElementById("speed").textContent = speed.toFixed(1);
+
+  if (speed > 3 && !tracking) {
+    tracking = true;
+    startTime = Date.now();
+    totalDistance = 0;
+    maxSpeed = 0;
+    lastPosition = null;
+    polyline.setLatLngs([]);
+    stopTimeout = null;
+    showPopup("🚗 تم اكتشاف حركة السيارة!");
+  }
+
+  if (tracking) {
+    maxSpeed = Math.max(maxSpeed, speed);
+    if (lastPosition) {
+      const dist = getDistance(lat, lon, lastPosition.lat, lastPosition.lon);
+      totalDistance += dist;
+      document.getElementById("distance").textContent = totalDistance.toFixed(2);
+    }
+
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById("duration").textContent = formatTime(duration);
+
+    // إذا السرعة انخفضت لفترة، نحسبها كتوقف
+    if (speed < 3) {
+      if (!stopTimeout) {
+        stopTimeout = setTimeout(() => {
+          if (tracking) saveTrip();
+        }, 30000); // 30 ثانية
+      }
+    } else {
+      clearTimeout(stopTimeout);
+      stopTimeout = null;
+    }
+  }
+
+  document.getElementById("status").textContent = tracking
+    ? "🚗 التتبع جارٍ..."
+    : "📡 في وضع الانتظار...";
+
+  lastPosition = { lat, lon };
+  marker.setLatLng([lat, lon]);
+  polyline.addLatLng([lat, lon]);
+  map.setView([lat, lon], 16);
+}
+
+// حفظ بيانات الرحلة
+function saveTrip() {
+  const endTime = new Date();
+  const car = document.getElementById("carType").value;
+  const prevKm = parseFloat(localStorage.getItem(`${car}_km`) || "0");
+  const prevFuel = parseFloat(localStorage.getItem(`${car}_fuel`) || "0");
+
+  const duration = Math.floor((Date.now() - startTime) / 1000);
+  const newKm = prevKm + totalDistance;
+  const newFuel = Math.max(prevFuel - totalDistance, 0);
+
+  const record = {
+    car,
+    date: endTime.toLocaleString(),
+    duration: formatTime(duration),
+    distance: totalDistance.toFixed(2),
+    maxSpeed: maxSpeed.toFixed(1),
+    prevKm: prevKm.toFixed(0),
+    prevFuel: prevFuel.toFixed(0)
+  };
+
+  let trips = JSON.parse(localStorage.getItem("trip_logs") || "[]");
+  trips.push(record);
+  localStorage.setItem("trip_logs", JSON.stringify(trips));
+
+  // تحديث العدادات
+  localStorage.setItem(`${car}_km`, newKm.toFixed(0));
+  localStorage.setItem(`${car}_fuel`, newFuel.toFixed(0));
+  document.getElementById("currentKm").value = newKm.toFixed(0);
+  document.getElementById("fuelLeft").value = newFuel.toFixed(0);
+
+  tracking = false;
+  startTime = null;
+  totalDistance = 0;
+  maxSpeed = 0;
+  stopTimeout = null;
+  document.getElementById("duration").textContent = "0";
+  document.getElementById("distance").textContent = "0.00";
+  document.getElementById("speed").textContent = "0";
+
+  showPopup("✅ تم حفظ الرحلة تلقائيًا");
+  showTripLogs();
+}
+
+// عرض سجل الرحلات
+function showTripLogs() {
+  const car = document.getElementById("carType").value;
+  const logs = JSON.parse(localStorage.getItem("trip_logs") || "[]").filter(r => r.car === car);
+  const container = document.getElementById("logs");
+  container.innerHTML = "";
+
+  if (logs.length === 0) {
+    container.innerHTML = "🚧 لا توجد رحلات محفوظة بعد.";
+    return;
+  }
+
+  logs.reverse().forEach(r => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      📅 ${r.date}<br>
+      ⏱️ المدة: ${r.duration}<br>
+      🛣️ المسافة: ${r.distance} كم<br>
+      🚀 السرعة القصوى: ${r.maxSpeed} كم/س<br>
+      🔢 عداد البداية: ${r.prevKm} كم<br>
+      ⛽ البترول قبل الرحلة: ${r.prevFuel} كم`;
+    container.appendChild(div);
+  });
+}
+  
+function showTab(tabId) {
+  document.querySelectorAll(".tab-content").forEach(div => div.classList.remove("active"));
+  document.getElementById(tabId).classList.add("active");
+  document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+  const clickedBtn = [...document.querySelectorAll(".tab-btn")].find(btn => btn.getAttribute("onclick").includes(tabId));
+  if (clickedBtn) clickedBtn.classList.add("active");
+}
+function saveCarData() {
+  const car = document.getElementById("carType").value;
+  localStorage.setItem(`${car}_km`, document.getElementById("currentKm").value);
+  localStorage.setItem(`${car}_fuel`, document.getElementById("fuelLeft").value);
+}
+function loadCarData() {
+  const car = document.getElementById("carType").value;
+  document.getElementById("currentKm").value = localStorage.getItem(`${car}_km`) || "0";
+  document.getElementById("fuelLeft").value = localStorage.getItem(`${car}_fuel`) || "0";
+  const imgData = localStorage.getItem(`${car}_image`);
+  document.getElementById("carImagePreview").src = imgData || "";
+  showTripLogs();
+}
+function loadCarImage(event) {
+  const car = document.getElementById("carType").value;
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    document.getElementById("carImagePreview").src = dataUrl;
+    localStorage.setItem(`${car}_image`, dataUrl);
+  };
+  if (file) reader.readAsDataURL(file);
+}
+function saveMaintenance() {
+  const car = document.getElementById("carType").value;
+  const type = document.getElementById("maintType").value.trim();
+  const km = parseFloat(document.getElementById("maintKm").value);
+  const date = document.getElementById("maintDate").value;
+  if (!type || isNaN(km) || !date) {
+    alert("يرجى تعبئة جميع الحقول");
+    return;
+  }
+  const record = { car, type, km, date };
+  let records = JSON.parse(localStorage.getItem("maintenance_records") || "[]");
+  records.push(record);
+  localStorage.setItem("maintenance_records", JSON.stringify(records));
+  document.getElementById("maintType").value = "";
+  document.getElementById("maintKm").value = "";
+  document.getElementById("maintDate").value = "";
+  showMaintenance();
+  showAlerts();
+  alert("✅ تم حفظ موعد الصيانة");
+}
+function showMaintenance() {
+  const list = document.getElementById("maintList");
+  list.innerHTML = "";
+  const car = document.getElementById("carType").value;
+  const records = JSON.parse(localStorage.getItem("maintenance_records") || "[]").filter(r => r.car === car);
+  records.forEach(r => {
+    const item = document.createElement("div");
+    item.className = "box";
+    item.innerHTML = `🔧 <strong>${r.type}</strong><br>
+      🚗 السيارة: ${r.car}<br>
+      🛣️ عند: ${r.km} كم<br>
+      📅 التاريخ: ${r.date}`;
+    list.appendChild(item);
+  });
+}
+function showAlerts() {
+  const alerts = document.getElementById("alertsContainer");
+  alerts.innerHTML = "";
+  const car = document.getElementById("carType").value;
+  const currentKm = parseFloat(document.getElementById("currentKm").value || "0");
+  const today = new Date();
+  const records = JSON.parse(localStorage.getItem("maintenance_records") || "[]").filter(r => r.car === car);
+  let found = false;
+
+  records.forEach(r => {
+    const diffKm = parseFloat(r.km) - currentKm;
+    const maintDate = new Date(r.date);
+    const diffDays = Math.ceil((maintDate - today) / (1000 * 60 * 60 * 24));
+
+    if (diffKm <= 500 || diffDays <= 7) {
+      found = true;
+      const msg = `🔧 صيانة: ${r.type} - متبقي ${diffKm <= 500 ? `${diffKm} كم` : ""} ${diffDays <= 7 ? `و${diffDays} يوم` : ""}`;
+      const div = document.createElement("div");
+      div.className = "box";
+      div.innerHTML = msg;
+      alerts.appendChild(div);
+    }
+  });
+
+  if (!found) alerts.innerHTML = "✅ لا توجد تنبيهات حالياً.";
+}
+
+</script>
+</body>
+</html>
