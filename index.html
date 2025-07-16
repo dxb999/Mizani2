@@ -2,63 +2,134 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>محاسبتي</title>
+  <title>ميزان محاسبتي</title>
   <style>
-    body { font-family: Tahoma; text-align: center; background: #f3f6f9; }
-    h1 { color: #2c3e50; }
-    .counter { display: flex; justify-content: space-around; margin: 20px 0; }
-    .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px #ccc; width: 150px; }
-    button { margin: 5px; padding: 10px 20px; border: none; border-radius: 5px; }
-    .good { background: #27ae60; color: white; }
-    .bad { background: #c0392b; color: white; }
-    #log { margin-top: 20px; text-align: right; padding: 10px; }
+    body {
+      font-family: Tahoma;
+      background: #f9f9f9;
+      text-align: center;
+      padding: 30px;
+    }
+
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    .counts {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+
+    .scale-wrapper {
+      margin: 20px auto;
+      height: 200px;
+      transition: transform 0.5s ease;
+    }
+
+    .scale-img {
+      width: 200px;
+    }
+
+    .buttons {
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 12px 20px;
+      margin: 8px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .good {
+      background-color: #2ecc71;
+      color: white;
+    }
+
+    .bad {
+      background-color: #e74c3c;
+      color: white;
+    }
+
+    #log {
+      text-align: right;
+      margin-top: 30px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
   </style>
 </head>
 <body>
-  <h1>💫 محاسبتي قبل الحساب 💫</h1>
 
-  <div class="counter">
-    <div class="box">
-      <h3>✅ الحسنات</h3>
-      <div id="goodCount">0</div>
-    </div>
-    <div class="box">
-      <h3>❌ السيئات</h3>
-      <div id="badCount">0</div>
-    </div>
+  <h1>⚖️ محاسبتي قبل الحساب</h1>
+
+  <div class="counts">
+    ✅ الحسنات: <span id="goodCount">0</span> |
+    ❌ السيئات: <span id="badCount">0</span>
   </div>
 
-  <h3>أضف عملًا:</h3>
-  <div>
-    <button class="good" onclick="addAction('صلاة', 'good')">صلاة</button>
-    <button class="good" onclick="addAction('صدقة', 'good')">صدقة</button>
-    <button class="bad" onclick="addAction('نظر لمحرم', 'bad')">نظر لمحرم</button>
-    <button class="bad" onclick="addAction('غيبة', 'bad')">غيبة</button>
+  <div class="scale-wrapper" id="scale">
+    <img class="scale-img" src="scale.png" alt="ميزان">
   </div>
 
-  <div id="log"></div>
+  <div class="buttons">
+    <button class="good" onclick="addPoint('صلاة', 'good')">صلاة</button>
+    <button class="good" onclick="addPoint('صدقة', 'good')">صدقة</button>
+    <button class="good" onclick="addPoint('قراءة قرآن', 'good')">قراءة قرآن</button>
+    <button class="bad" onclick="addPoint('نظر لمحرم', 'bad')">نظر لمحرم</button>
+    <button class="bad" onclick="addPoint('غيبة', 'bad')">غيبة</button>
+  </div>
+
+  <div id="log">
+    <strong>📜 سجل الأعمال:</strong><br>
+  </div>
 
   <script>
-    let good = parseInt(localStorage.getItem('good') || '0');
-    let bad = parseInt(localStorage.getItem('bad') || '0');
-    document.getElementById("goodCount").textContent = good;
-    document.getElementById("badCount").textContent = bad;
+    let good = parseInt(localStorage.getItem("good") || 0);
+    let bad = parseInt(localStorage.getItem("bad") || 0);
 
-    function addAction(name, type) {
-      const date = new Date().toLocaleString('ar-EG');
-      const entry = `📅 ${date} - ${type === 'good' ? '✅' : '❌'} ${name}<br>`;
-      document.getElementById("log").innerHTML = entry + document.getElementById("log").innerHTML;
+    const goodEl = document.getElementById("goodCount");
+    const badEl = document.getElementById("badCount");
+    const scale = document.getElementById("scale");
+    const log = document.getElementById("log");
+
+    function updateUI() {
+      goodEl.textContent = good;
+      badEl.textContent = bad;
+
+      const diff = good - bad;
+      let angle = Math.max(Math.min(diff * 2, 15), -15); // الحد الأقصى ±15 درجة
+      scale.style.transform = `rotate(${-angle}deg)`;
+    }
+
+    function addPoint(action, type) {
+      const now = new Date().toLocaleString('ar-EG');
 
       if (type === 'good') {
         good++;
-        localStorage.setItem('good', good);
-        document.getElementById("goodCount").textContent = good;
+        localStorage.setItem("good", good);
       } else {
         bad++;
-        localStorage.setItem('bad', bad);
-        document.getElementById("badCount").textContent = bad;
+        localStorage.setItem("bad", bad);
       }
+
+      const entry = `<div>📅 ${now} - ${type === 'good' ? '✅' : '❌'} ${action}</div>`;
+      log.innerHTML = entry + log.innerHTML;
+
+      updateUI();
     }
+
+    updateUI();
   </script>
+
 </body>
 </html>
