@@ -197,9 +197,27 @@
     </div>
 
     <div id="tripLogs" class="tab-content">
-      <h2>📊 سجل الرحلات</h2>
-      <div id="logs">🚧 سيتم ربط سجل الرحلات لاحقاً</div>
-    </div>
+  <h2>📊 سجل الرحلات</h2>
+
+  <!-- 🔍 فلترة حسب التاريخ -->
+  <div class="box">
+    <label>من:</label>
+    <input type="date" id="filterFrom" onchange="showTripLogs()">
+    <label>إلى:</label>
+    <input type="date" id="filterTo" onchange="showTripLogs()">
+  </div>
+
+  <!-- ✅ نتائج سجل الرحلات -->
+  <div id="logs">🚧 لا توجد رحلات لعرضها</div>
+
+  <!-- 📈 ملخص -->
+  <div class="box" id="tripSummary" style="margin-top: 15px;">
+    <strong>📈 مجموع الرحلات:</strong><br>
+    ✅ عدد الرحلات: <span id="totalTrips">0</span><br>
+    🛣️ المسافة الكلية: <span id="totalDistance">0.00</span> كم
+  </div>
+</div>
+
 
     <div id="maintenance" class="tab-content">
       <h2>🛠️ مواعيد الصيانة</h2>
@@ -534,27 +552,64 @@ function saveTrip() {
 // عرض سجل الرحلات
 function showTripLogs() {
   const car = document.getElementById("carType").value;
-  const logs = JSON.parse(localStorage.getItem("trip_logs") || "[]").filter(r => r.car === car);
+  const allLogs = JSON.parse(localStorage.getItem("trip_logs") || "[]").filter(r => r.car === car);
+  const fromDate = new Date(document.getElementById("filterFrom").value || "2000-01-01");
+  const toDate = new Date(document.getElementById("filterTo").value || "2100-12-31");
+
+  const filteredLogs = allLogs.filter(r => {
+    const logDate = new Date(r.date);
+    return logDate >= fromDate && logDate <= toDate;
+  });
+
   const container = document.getElementById("logs");
   container.innerHTML = "";
 
-  if (logs.length === 0) {
-    container.innerHTML = "🚧 لا توجد رحلات محفوظة بعد.";
+  if (filteredLogs.length === 0) {
+    container.innerHTML = "🚧 لا توجد رحلات ضمن النطاق الزمني المحدد.";
+    document.getElementById("totalTrips").textContent = "0";
+    document.getElementById("totalDistance").textContent = "0.00";
     return;
   }
 
-  logs.reverse().forEach(r => {
+  let totalTrips = 0;
+  let totalDistance = 0;
+
+  filteredLogs.reverse().forEach((r, index) => {
+    totalTrips++;
+    totalDistance += parseFloat(r.distance);
+
     const div = document.createElement("div");
     div.className = "box";
     div.innerHTML = `
-      📅 ${r.date}<br>
+      <strong>📅 ${r.date}</strong><br>
       ⏱️ المدة: ${r.duration}<br>
       🛣️ المسافة: ${r.distance} كم<br>
       🚀 السرعة القصوى: ${r.maxSpeed} كم/س<br>
       🔢 عداد البداية: ${r.prevKm} كم<br>
-      ⛽ البترول قبل الرحلة: ${r.prevFuel} كم`;
+      ⛽ البترول قبل الرحلة: ${r.prevFuel} كم<br>
+      <button onclick="deleteTrip(${index})">🗑️ حذف</button>
+      <div id="mapTrip${index}" style="height: 180px; margin-top: 8px;"></div>
+    `;
     container.appendChild(div);
+
+    // خريطة لكل رحلة (موقع عشوائي حاليًا)
+    const map = L.map(`mapTrip${index}`).setView([24.4667 + Math.random() / 100, 54.3667 + Math.random() / 100], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.marker([24.4667 + Math.random() / 100, 54.3667 + Math.random() / 100]).addTo(map)
+      .bindPopup("🚗 بداية الرحلة").openPopup();
   });
+
+  document.getElementById("totalTrips").textContent = totalTrips;
+  document.getElementById("totalDistance").textContent = totalDistance.toFixed(2);
+}
+  function deleteTrip(index) {
+  const car = document.getElementById("carType").value;
+  let allLogs = JSON.parse(localStorage.getItem("trip_logs") || "[]");
+  let filtered = allLogs.filter(r => r.car === car);
+  const originalIndex = allLogs.indexOf(filtered.reverse()[index]); // تحديد موقع الرحلة الأصلية
+  allLogs.splice(originalIndex, 1);
+  localStorage.setItem("trip_logs", JSON.stringify(allLogs));
+  showTripLogs();
 }
   
 function showTab(tabId) {
