@@ -98,7 +98,46 @@
 .icon {
   margin-left: 5px;
 }
-    .content-area { flex: 1; }
+    
+   .last-icons-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+  margin: 15px 0;
+}
+.icon-btn {
+  background: #e3e9f0;
+  padding: 15px;
+  border-radius: 10px;
+  font-size: 24px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.icon-btn:hover {
+  background: #c8d6e5;
+}
+.last-maint-details {
+  margin-top: 10px;
+}
+.last-maint-item {
+  background: #f9fbfc;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.last-maint-item label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+.last-maint-item input {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+} .content-area { flex: 1; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
@@ -167,6 +206,26 @@
         <input type="date" id="maintDate"><br><br>
         <div class="maintenance-templates">
 
+<!-- 🕓 آخر صيانة لكل نوع -->
+<div class="box">
+  <h3>🕓 آخر صيانة لكل نوع</h3>
+
+  <!-- شبكة الأيقونات -->
+  <div class="last-icons-grid">
+    <div class="icon-btn" onclick="showLastMaint('battery')">🔋<br>البطارية</div>
+    <div class="icon-btn" onclick="showLastMaint('brakes')">🛑<br>الفرامل</div>
+    <div class="icon-btn" onclick="showLastMaint('engine')">🟣<br>المحرك</div>
+    <div class="icon-btn" onclick="showLastMaint('filters')">🧴<br>الفلاتر</div>
+    <div class="icon-btn" onclick="showLastMaint('fluids')">💧<br>السوائل</div>
+    <div class="icon-btn" onclick="showLastMaint('wheels')">🚘<br>العجلات</div>
+  </div>
+
+  <!-- تفاصيل الأنواع الفرعية -->
+  <div id="lastMaintDetails" class="last-maint-details"></div>
+</div>
+
+
+          
   <!-- 🔋 البطارية -->
   <div class="maint-section">
     <h4><span class="icon">🔋</span> البطارية</h4>
@@ -489,11 +548,21 @@ function saveCarData() {
 }
 function loadCarData() {
   const car = document.getElementById("carType").value;
+
+  // تحميل البيانات الأساسية
   document.getElementById("currentKm").value = localStorage.getItem(`${car}_km`) || "0";
   document.getElementById("fuelLeft").value = localStorage.getItem(`${car}_fuel`) || "0";
   const imgData = localStorage.getItem(`${car}_image`);
   document.getElementById("carImagePreview").src = imgData || "";
+
+  // عرض سجل الرحلات
   showTripLogs();
+
+  // إفراغ قسم آخر صيانة
+  const lastMaintDetails = document.getElementById("lastMaintDetails");
+  if (lastMaintDetails) {
+    lastMaintDetails.innerHTML = "";
+  }
 }
 function loadCarImage(event) {
   const car = document.getElementById("carType").value;
@@ -539,6 +608,62 @@ function showMaintenance() {
       🛣️ عند: ${r.km} كم<br>
       📅 التاريخ: ${r.date}`;
     list.appendChild(item);
+  });
+}
+
+
+  const lastMaintTypes = {
+  battery: [
+    { key: "تفقد البطارية", km: 10000, months: 12 },
+    { key: "تبديل البطارية", km: 80000, months: 60 },
+  ],
+  brakes: [
+    { key: "فحص حالة الفرامل", km: 10000, months: 12 },
+    { key: "تبديل الفحمات", km: 30000, months: 36 },
+    { key: "صيانة الفرامل", km: 20000, months: 24 },
+  ],
+  engine: [
+    { key: "فحص سير التايمن", km: 10000, months: 12 },
+    { key: "تبديل البواجي", km: 100000, months: 84 },
+    { key: "تبديل سير التايمن", km: 100000, months: 84 },
+  ],
+  filters: [
+    { key: "تبديل فلتر الهواء", km: 20000, months: 12 },
+    { key: "تبديل فلتر المكيف", km: 15000, months: 12 },
+    { key: "تبديل فلتر الزيت", km: 10000, months: 6 },
+  ],
+  fluids: [
+    { key: "تفقد مستوى الزيت", km: 10000, months: 6 },
+    { key: "تفقد سائل الفرامل", km: 20000, months: 12 },
+    { key: "تبديل زيت المكينة", km: 10000, months: 6 },
+  ],
+  wheels: [
+    { key: "تبديل الكفرات", km: 60000, months: 36 },
+    { key: "توزان الكفرات", km: 10000, months: 6 },
+    { key: "ترصيص الكفرات", km: 10000, months: 6 },
+  ]
+};
+
+function showLastMaint(sectionKey) {
+  const container = document.getElementById("lastMaintDetails");
+  container.innerHTML = "";
+  const car = document.getElementById("carType").value;
+
+  lastMaintTypes[sectionKey].forEach(item => {
+    const kmKey = `${car}_${item.key}_km`;
+    const dateKey = `${car}_${item.key}_date`;
+
+    const savedKm = localStorage.getItem(kmKey) || "";
+    const savedDate = localStorage.getItem(dateKey) || "";
+
+    const div = document.createElement("div");
+    div.className = "last-maint-item";
+    div.innerHTML = `
+      <label>${item.key}</label>
+      <input type="date" value="${savedDate}" onchange="localStorage.setItem('${dateKey}', this.value)">
+      <input type="number" placeholder="كم عند الصيانة" value="${savedKm}" onchange="localStorage.setItem('${kmKey}', this.value)">
+    `;
+    container.appendChild(div);
   });
 }
 function showAlerts() {
