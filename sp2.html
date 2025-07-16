@@ -354,25 +354,27 @@ function clearLogs() {
 }
 
 // 🔁 تبديل التبويبات
+
 function showTab(tabId) {
   // إخفاء كل التبويبات
-  document.querySelectorAll(".tab-content").forEach(div => div.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(div => {
+    div.classList.remove("active");
+  });
 
   // إظهار التبويب المطلوب
-  const target = document.getElementById(tabId);
-  if (target) target.classList.add("active");
+  const selected = document.getElementById(tabId);
+  if (selected) {
+    selected.classList.add("active");
+  }
 
-  // إزالة تفعيل الأزرار السابقة
-  document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
-
-  // تفعيل الزر الذي تم الضغط عليه
+  // تحديث الزر النشط
   document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.classList.remove("active");
     if (btn.getAttribute("onclick")?.includes(tabId)) {
       btn.classList.add("active");
     }
   });
 }
-
 // 📷 تحميل صورة من الهاتف
 ‏function loadCarImage(event) {
 ‏  const car = document.getElementById("carType").value;
