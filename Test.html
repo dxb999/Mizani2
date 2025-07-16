@@ -61,6 +61,43 @@
   color: white;
   font-weight: bold;
 }
+
+    .maintenance-templates {
+  background: #f5f7fb;
+  border-radius: 10px;
+  padding: 15px;
+  margin-top: 20px;
+}
+.maint-section {
+  margin-bottom: 20px;
+}
+.maint-section h4 {
+  font-size: 16px;
+  color: #333;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+.maint-item {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.maint-item:hover {
+  background: #eaf2ff;
+}
+.maint-item small {
+  color: #777;
+  display: block;
+  margin-top: 4px;
+}
+.icon {
+  margin-left: 5px;
+}
     .content-area { flex: 1; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -504,6 +541,18 @@ function showAlerts() {
   });
 
   if (!found) alerts.innerHTML = "✅ لا توجد تنبيهات حالياً.";
+}
+  function selectSuggested(type, kmInterval, monthsAhead) {
+  document.getElementById("maintType").value = type;
+  const currentKm = parseFloat(document.getElementById("currentKm").value || "0");
+  document.getElementById("maintKm").value = currentKm + kmInterval;
+
+  const today = new Date();
+  today.setMonth(today.getMonth() + monthsAhead);
+  const futureDate = today.toISOString().split("T")[0];
+  document.getElementById("maintDate").value = futureDate;
+
+  showPopup(`✅ تم اختيار: ${type}`);
 }
 
 </script>
