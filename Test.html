@@ -218,16 +218,30 @@
 
   <!-- شبكة الأيقونات -->
   <div class="last-icons-grid">
-
   <div class="icon-btn" onclick="showLastMaint('battery')">
     <img src="https://cdn-icons-png.flaticon.com/512/4343/4343487.png" alt="بطارية" width="40"><br>البطارية
   </div>    
-    <div class="icon-btn" onclick="showLastMaint('brakes')">🛑<br>الفرامل</div>
-    <div class="icon-btn" onclick="showLastMaint('engine')">🟣<br>المحرك</div>
-    <div class="icon-btn" onclick="showLastMaint('filters')">🧴<br>الفلاتر</div>
-    <div class="icon-btn" onclick="showLastMaint('fluids')">💧<br>السوائل</div>
-    <div class="icon-btn" onclick="showLastMaint('wheels')">🚘<br>العجلات</div>
+
+  <div class="icon-btn" onclick="showLastMaint('brakes')">
+    <img src="https://cdn-icons-png.flaticon.com/512/3418/3418048.png" alt="فرامل" width="40"><br>الفرامل
   </div>
+
+  <div class="icon-btn" onclick="showLastMaint('engine')">
+    <img src="https://cdn-icons-png.flaticon.com/512/2061/2061910.png" alt="محرك" width="40"><br>المحرك
+  </div>
+
+  <div class="icon-btn" onclick="showLastMaint('filters')">
+    <img src="https://static.vecteezy.com/system/resources/previews/003/855/128/large_2x/car-air-filter-color-icon-isolated-illustrations-vector.jpg" alt="فلاتر" width="40"><br>الفلاتر
+  </div>
+
+  <div class="icon-btn" onclick="showLastMaint('fluids')">
+    <img src="https://static.vecteezy.com/system/resources/previews/015/082/189/non_2x/car-oil-icon-color-outline-vector.jpg" alt="سوائل" width="40"><br>السوائل
+  </div>
+
+  <div class="icon-btn" onclick="showLastMaint('wheels')">
+    <img src="https://static.vecteezy.com/system/resources/previews/015/153/881/non_2x/car-wheel-icon-color-outline-vector.jpg" alt="عجلات" width="40"><br>العجلات
+  </div>
+</div>
 
   <!-- تفاصيل الأنواع الفرعية -->
   <div id="lastMaintDetails" class="last-maint-details"></div>
@@ -365,7 +379,7 @@ function updateCarDropdown(selectedCar = null) {
 
 // أيقونة سيارة
 carIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854866.png',
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/10473/10473321.png',
   iconSize: [40, 40],
   iconAnchor: [20, 20]
 });
