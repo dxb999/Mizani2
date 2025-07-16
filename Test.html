@@ -128,6 +128,32 @@
         <input type="number" id="maintKm"><br><br>
         <label>📅 التاريخ:</label>
         <input type="date" id="maintDate"><br><br>
+        <div class="maintenance-templates">
+
+  <!-- 🔋 البطارية -->
+  <div class="maint-section">
+    <h4><span class="icon">🔋</span> البطارية</h4>
+    <div class="maint-item" onclick="selectSuggested('تفقد البطارية', 10000, 12)">🔍 تفقد البطارية<br><small>١٢ شهر / ١٠٠٠٠ كم</small></div>
+    <div class="maint-item" onclick="selectSuggested('تبديل البطارية', 80000, 60)">🔁 تبديل البطارية<br><small>٦٠ شهر / ٨٠٠٠٠ كم</small></div>
+  </div>
+
+  <!-- 🛑 الفرامل -->
+  <div class="maint-section">
+    <h4><span class="icon">🛑</span> الفرامل</h4>
+    <div class="maint-item" onclick="selectSuggested('فحص حالة الفرامل', 10000, 12)">🧪 فحص حالة الفرامل<br><small>١٢ شهر / ١٠٠٠٠ كم</small></div>
+    <div class="maint-item" onclick="selectSuggested('تبديل الفحمات', 30000, 36)">🔧 تبديل الفحمات<br><small>٣٦ شهر / ٣٠٠٠٠ كم</small></div>
+    <div class="maint-item" onclick="selectSuggested('صيانة الفرامل', 20000, 24)">🛠️ صيانة الفرامل<br><small>٢٤ شهر / ٢٠٠٠٠ كم</small></div>
+  </div>
+
+  <!-- 🟣 المحرك -->
+  <div class="maint-section">
+    <h4><span class="icon">🟣</span> المحرك</h4>
+    <div class="maint-item" onclick="selectSuggested('فحص سير التايمن', 10000, 12)">🧪 فحص سير التايمن<br><small>١٢ شهر / ١٠٠٠٠ كم</small></div>
+    <div class="maint-item" onclick="selectSuggested('تبديل البواجي', 100000, 84)">⚡ تبديل البواجي<br><small>٨٤ شهر / ١٠٠٠٠٠ كم</small></div>
+    <div class="maint-item" onclick="selectSuggested('تبديل سير التايمن', 100000, 84)">🔁 تبديل سير التايمن<br><small>٨٤ شهر / ١٠٠٠٠٠ كم</small></div>
+  </div>
+
+</div>
         <button onclick="saveMaintenance()">💾 حفظ الصيانة</button>
       </div>
       <div id="maintList"></div>
