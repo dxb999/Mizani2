@@ -354,12 +354,23 @@ function clearLogs() {
 }
 
 // 🔁 تبديل التبويبات
-‏function showTab(tabId) {
-‏  document.querySelectorAll(".tab-content").forEach(div => div.classList.remove("active"));
-‏  document.getElementById(tabId).classList.add("active");
-‏  document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
-‏  const clickedBtn = [...document.querySelectorAll(".tab-btn")].find(btn => btn.getAttribute("onclick").includes(tabId));
-‏  if (clickedBtn) clickedBtn.classList.add("active");
+function showTab(tabId) {
+  // إخفاء كل التبويبات
+  document.querySelectorAll(".tab-content").forEach(div => div.classList.remove("active"));
+
+  // إظهار التبويب المطلوب
+  const target = document.getElementById(tabId);
+  if (target) target.classList.add("active");
+
+  // إزالة تفعيل الأزرار السابقة
+  document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+
+  // تفعيل الزر الذي تم الضغط عليه
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    if (btn.getAttribute("onclick")?.includes(tabId)) {
+      btn.classList.add("active");
+    }
+  });
 }
 
 // 📷 تحميل صورة من الهاتف
