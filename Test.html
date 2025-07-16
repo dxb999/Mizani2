@@ -117,6 +117,12 @@
 .icon-btn:hover {
   background: #c8d6e5;
 }
+.active-icon {
+  background-color: #0a3e7d;
+  color: white;
+  font-weight: bold;
+}
+    
 .last-maint-details {
   margin-top: 10px;
 }
@@ -644,10 +650,31 @@ function showMaintenance() {
   ]
 };
 
+let lastVisibleSection = null;
+
 function showLastMaint(sectionKey) {
   const container = document.getElementById("lastMaintDetails");
-  container.innerHTML = "";
   const car = document.getElementById("carType").value;
+
+  // إزالة التمييز من كل الأيقونات
+  document.querySelectorAll(".icon-btn").forEach(btn => btn.classList.remove("active-icon"));
+
+  // إذا تم الضغط على نفس القسم مرة أخرى، نخفيه
+  if (lastVisibleSection === sectionKey) {
+    container.innerHTML = "";
+    lastVisibleSection = null;
+    return;
+  }
+
+  // حفظ القسم الحالي كآخر قسم نشط
+  lastVisibleSection = sectionKey;
+
+  // تمييز الأيقونة الحالية
+  const clickedIcon = document.querySelector(`.icon-btn[onclick="showLastMaint('${sectionKey}')"]`);
+  if (clickedIcon) clickedIcon.classList.add("active-icon");
+
+  // عرض التفاصيل
+  container.innerHTML = "";
 
   lastMaintTypes[sectionKey].forEach(item => {
     const kmKey = `${car}_${item.key}_km`;
@@ -665,8 +692,9 @@ function showLastMaint(sectionKey) {
     `;
     container.appendChild(div);
   });
-}
-function showAlerts() {
+}  
+  
+  function showAlerts() {
   const alerts = document.getElementById("alertsContainer");
   alerts.innerHTML = "";
   const car = document.getElementById("carType").value;
