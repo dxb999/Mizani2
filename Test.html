@@ -452,7 +452,39 @@ function startTracking() {
     timeout: 5000
   });
 }
+function generateMaintenanceSchedule(currentKm, carType) {
+  document.querySelectorAll('.maintenance-schedule').forEach(section => {
+    const type = section.dataset.type;
+    const repeatKm = parseInt(section.dataset.km);
+    const list = section.querySelector('.schedule-list');
+    list.innerHTML = '';
 
+    for (let i = repeatKm; i < currentKm; i += repeatKm) {
+      const checkboxId = `${carType}-${type}-${i}`;
+      const checked = localStorage.getItem(checkboxId) === '1';
+
+      const label = document.createElement('label');
+      label.innerHTML = `
+        <input type="checkbox" id="${checkboxId}" ${checked ? 'checked' : ''}>
+        ${i.toLocaleString()} كم
+      `;
+      list.appendChild(label);
+
+      document.getElementById(checkboxId).addEventListener('change', (e) => {
+        localStorage.setItem(checkboxId, e.target.checked ? '1' : '0');
+      });
+    }
+  });
+}
+
+// تشغيل عند تحميل الصفحة
+window.addEventListener("load", () => {
+  const carType = document.getElementById("carType")?.value || "default";
+  const currentKm = parseInt(localStorage.getItem("currentKm-" + carType) || 0);
+  generateMaintenanceSchedule(currentKm, carType);
+});
+
+  
 function generateScheduleTables(currentKm) {
   document.querySelectorAll('.maintenance-schedule').forEach(section => {
     const type = section.dataset.type;
