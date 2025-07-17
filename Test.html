@@ -122,6 +122,22 @@
   color: white;
 
 }
+    .maintenance-schedule {
+  margin-top: 10px;
+  background: #f8f8f8;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.maintenance-schedule label {
+  display: block;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.maintenance-schedule input[type="checkbox"] {
+  margin-left: 8px;
+}
+
     
 .last-maint-details {
   margin-top: 10px;
@@ -271,7 +287,11 @@
   <div class="maint-section">
     <h4><span class="icon">🔋</span> البطارية</h4>
     <div class="maint-item" onclick="selectSuggested('تفقد البطارية', 10000, 12)">🔍 تفقد البطارية<br><small>١٢ شهر / ١٠٠٠٠ كم</small></div>
-    <div class="maint-item" onclick="selectSuggested('تبديل البطارية', 80000, 60)">🔁 تبديل البطارية<br><small>٦٠ شهر / ٨٠٠٠٠ كم</small></div>
+    <div class="maint-item" onclick="selectSuggested('تبديل البطارية', 80000, 60)">🔁 تبديل البطارية<br><small>٦٠ شهر / ٨٠٠٠٠ كم</small></div>  
+<div class="maintenance-schedule" data-type="battery-change" data-km="80000">
+    <h4>📋 جدول الصيانة</h4>
+    <div class="schedule-list"></div>
+  </div>
   </div>
 
   <!-- 🛑 الفرامل -->
@@ -426,6 +446,40 @@ function startTracking() {
     timeout: 5000
   });
 }
+
+function generateScheduleTables(currentKm) {
+  document.querySelectorAll('.maintenance-schedule').forEach(section => {
+    const type = section.dataset.type;
+    const repeatKm = parseInt(section.dataset.km);
+    const list = section.querySelector('.schedule-list');
+    list.innerHTML = '';
+
+    for (let i = repeatKm; i < currentKm; i += repeatKm) {
+      const checkboxId = `${type}-${i}`;
+      const checked = localStorage.getItem(checkboxId) === '1';
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <label>
+          <input type="checkbox" id="${checkboxId}" ${checked ? 'checked' : ''}>
+          ${i.toLocaleString()} كم
+        </label>
+      `;
+      list.appendChild(div);
+
+      // حفظ التغيير عند الضغط
+      document.getElementById(checkboxId).addEventListener('change', e => {
+        localStorage.setItem(checkboxId, e.target.checked ? '1' : '0');
+      });
+    }
+  });
+}
+
+// تنفيذ بعد تحميل الصفحة
+window.addEventListener("load", () => {
+  const carType = document.getElementById("carType")?.value || "default";
+  const currentKm = parseInt(localStorage.getItem("currentKm-" + carType) || 0);
+  generateScheduleTables(currentKm);
+});
 
 
 // تنسيق الوقت
