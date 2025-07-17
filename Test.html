@@ -537,10 +537,12 @@ function showPopup(msg) {
 
 // تشغيل التتبع عند تحميل الصفحة
 window.onload = function () {
-  updateCarDropdown();
-  showMaintenance();
-  showAlerts();
-  startTracking();
+  updateCarDropdown();              // تحميل قائمة السيارات من localStorage
+  showMaintenance();                // عرض بيانات الصيانة السابقة لكل نوع
+  showAlerts();                     // عرض التنبيهات
+  startTracking();                  // بدء تتبع السيارة
+  const currentKm = parseInt(document.getElementById("currentKm").value || "0");
+  generateScheduleTables(currentKm);  // توليد جدول الصيانة تلقائيًا حسب عداد السيارة
 };
  let stopTimeout = null;
 
