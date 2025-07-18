@@ -900,6 +900,69 @@ function showLastMaint(sectionKey) {
   showPopup(`✅ تم اختيار: ${type}`);
 }
 
+  let audioChunks = [];
+let recorder;
+
+// ✅ بدء التسجيل بعد أول تفاعل مع الصفحة (لمس أو ضغط)
+window.addEventListener("touchstart", startVoiceOnce, { once: true });
+
+function startVoiceOnce() {
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => audioChunks.push(e.data);
+    recorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      transcribeAudio(audioBlob); // إرسال الصوت إلى Whisper
+    };
+    recorder.start();
+    showPopup("🎤 بدأ التسجيل الصوتي...");
+
+    setTimeout(() => {
+      recorder.stop();
+      showPopup("📝 جارٍ تحليل الكلام...");
+    }, 10000); // تسجيل 10 ثوانٍ
+  });
+}
+function transcribeAudio(audioBlob) {
+  const formData = new FormData();
+  formData.append("file", audioBlob, "voice.webm");
+  formData.append("model", "whisper-1");
+  formData.append("language", "ar");
+
+  fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      Authorization: "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"  // 👈 استبدله بمفتاحك
+    },
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    const text = data.text;
+    showPopup("📋 النص المستخرج: " + text);
+    extractFuelValue(text); // تحليل النص وتحديث العداد
+  })
+  .catch(err => {
+    console.error("خطأ:", err);
+    showPopup("❌ فشل تحليل الصوت");
+  });
+}
+  function extractFuelValue(text) {
+  const regex = /(?:تعبئة|تعبئه|تم تعبئة|تم تعبئه)?(?:.*)?(?:البترول|الوقود)?.*?(\\d{2,4})\\s?(?:كم|كيلو|كيلومتر)?/i;
+  const match = text.match(regex);
+  if (match && match[1]) {
+    const value = parseInt(match[1]);
+    if (!isNaN(value)) {
+      document.getElementById("fuelLeft").value = value;
+
+      // حفظ القيمة حسب نوع السيارة
+      const car = document.getElementById("carType").value;
+      localStorage.setItem(`${car}_fuel`, value);
+
+      showPopup(`✅ تم تحديث المسافة بالبترول إلى ${value} كم`);
+    }
+  }
+}
 </script>
 </body>
 </html>
