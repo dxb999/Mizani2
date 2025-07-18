@@ -900,8 +900,8 @@ function showLastMaint(sectionKey) {
   showPopup(`✅ تم اختيار: ${type}`);
 }
 
-  let audioChunks = [];
-let recorder;
+ let recorder;
+let audioChunks = []; 
 
 // ✅ بدء التسجيل بعد أول تفاعل مع الصفحة (لمس أو ضغط)
 window.addEventListener("touchstart", startVoiceLoop, { once: true });
@@ -976,8 +976,7 @@ function transcribeAudio(audioBlob) {
   document.body.prepend(errorDiv);
 } 
   let audioLoopActive = false;
-let recorder;
-let audioChunks = [];
+
 
 function startVoiceLoop() {
   if (audioLoopActive) return; // منع التكرار
