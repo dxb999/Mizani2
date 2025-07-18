@@ -959,7 +959,7 @@ function transcribeAudio(audioBlob) {
     return;
   }
 
-  const regex = /(?:تعبئة|تعبئه|تم تعبئة|تم تعبئه)?(?:.*)?(?:البترول|الوقود)?.*?(\d{2,4})\s?(?:كم|كيلو|كيلومتر)?/i;
+  const regex = /(?:refuel(?:ed)?|fill(?:ed)?|topped(?:\s*up)?)?(?:.*)?(?:fuel|gas)?(?:.*)?(\d{2,4})\s?(?:km|kilometers)?/i;
   const match = text.match(regex);
 
   if (match && match[1]) {
