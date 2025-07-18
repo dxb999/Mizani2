@@ -932,35 +932,48 @@ function transcribeAudio(audioBlob) {
   fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: {
-      Authorization: "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"  // 👈 استبدله بمفتاحك
+      Authorization: "Bearer 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"
     },
     body: formData
   })
   .then(res => res.json())
   .then(data => {
+    if (!data.text) {
+      showPopup("❌ لم يتم التعرف على أي كلام");
+      return;
+    }
+
     const text = data.text;
     showPopup("📋 النص المستخرج: " + text);
     extractFuelValue(text); // تحليل النص وتحديث العداد
   })
-.catch(err => {
-  showPopup("❌ فشل تحليل الصوت");
-  showErrorOnPage(err); // عرض الخطأ على الصفحة
-});
+  .catch(err => {
+    showPopup("❌ فشل تحليل الصوت");
+    showErrorOnPage(err); // عرض الخطأ على الصفحة
+  });
 }
   function extractFuelValue(text) {
+  // تأكد أن المتغير هو نص فعلاً
+  if (typeof text !== "string") {
+    showPopup("⚠️ لم يتم استلام نص صحيح لتحليله");
+    return;
+  }
+
   const regex = /(?:تعبئة|تعبئه|تم تعبئة|تم تعبئه)?(?:.*)?(?:البترول|الوقود)?.*?(\d{2,4})\s?(?:كم|كيلو|كيلومتر)?/i;
   const match = text.match(regex);
+
   if (match && match[1]) {
     const value = parseInt(match[1]);
     if (!isNaN(value)) {
       document.getElementById("fuelLeft").value = value;
 
-      // حفظ القيمة حسب نوع السيارة
       const car = document.getElementById("carType").value;
       localStorage.setItem(`${car}_fuel`, value);
 
       showPopup(`✅ تم تحديث المسافة بالبترول إلى ${value} كم`);
     }
+  } else {
+    showPopup("⚠️ لم يتم العثور على رقم صالح في الجملة");
   }
 }
 
