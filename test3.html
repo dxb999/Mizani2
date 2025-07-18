@@ -2,41 +2,82 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>🎤 التعرف على الصوت - مع تحديث القيم</title>
+  <title>🎤 نظام صوتي ذكي</title>
   <style>
-    body { font-family: Tahoma; padding: 20px; text-align: center; background: #f9f9f9; }
-    button { padding: 12px 24px; font-size: 1em; margin-bottom: 20px; }
+    body {
+      font-family: Tahoma, sans-serif;
+      background: #f3f4f6;
+      text-align: center;
+      padding: 20px;
+      direction: rtl;
+    }
+    .mic-button {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background-color: #ff5252;
+      border: none;
+      color: white;
+      font-size: 2em;
+      cursor: pointer;
+      margin: 20px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .mic-button.active {
+      background-color: #4caf50;
+    }
+    #volumeBar {
+      width: 60%;
+      height: 10px;
+      background: #ddd;
+      border-radius: 5px;
+      margin: 10px auto 30px;
+      overflow: hidden;
+    }
+    #volumeLevel {
+      height: 100%;
+      width: 0%;
+      background: #4caf50;
+    }
     #live, #result, #carData {
-      margin-top: 15px;
-      padding: 10px;
+      padding: 15px;
       border-radius: 10px;
-      background: #fff;
+      background: #ffffff;
       width: 90%;
-      margin-left: auto;
-      margin-right: auto;
+      margin: 10px auto;
       font-size: 1.1em;
       text-align: right;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-    #live { border: 2px dashed #2196F3; }
-    #result { border: 2px solid #4CAF50; background-color: #eaffea; }
+    #live {
+      border: 2px dashed #2196f3;
+    }
+    #result {
+      border: 2px solid #4caf50;
+      background-color: #eaffea;
+    }
     #carData input {
       width: 90%;
-      padding: 8px;
-      margin: 8px 0;
+      padding: 10px;
+      margin: 10px 0;
       font-size: 1em;
     }
   </style>
 </head>
 <body>
 
-  <h2>🎙️ اضغط لبدء التحدث</h2>
-  <button onclick="startRecognition()">🎤 بدء التحدث</button>
+  <h2>🎙️ نظام التحدث الذكي</h2>
+
+  <button class="mic-button" id="micBtn">🎤</button>
+  <div id="volumeBar"><div id="volumeLevel"></div></div>
 
   <div id="live">🟡 جاري الاستماع...</div>
   <div id="result">✅ النص النهائي سيظهر هنا بعد الانتهاء.</div>
 
-  <!-- 🔧 قسم بيانات السيارة -->
+  <!-- بيانات السيارة -->
   <div id="carData">
     <label>🔢 عداد السيارة (كم):</label><br>
     <input id="carKm" type="number" oninput="saveToLocalStorage()"><br>
@@ -45,8 +86,10 @@
   </div>
 
   <script>
-    // ✅ تحميل القيم من التخزين عند البداية
-    window.onload = function() {
+    let recognition;
+    let isListening = false;
+
+    window.onload = function () {
       document.getElementById("carKm").value = localStorage.getItem("car_km") || "";
       document.getElementById("fuelLeft").value = localStorage.getItem("fuel_left") || "";
     };
@@ -57,21 +100,23 @@
     }
 
     function startRecognition() {
-      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.lang = "ar-AE"; // أو "en-US" لو أحببت
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("🎤 المتصفح لا يدعم ميزة التعرف على الصوت");
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = "ar-AE";
       recognition.interimResults = true;
+      recognition.continuous = false;
 
-      document.getElementById("live").innerText = "🎧 جاري الاستماع...";
-      document.getElementById("result").innerText = "⏳ النص النهائي سيظهر هنا...";
+      recognition.onstart = () => {
+        document.getElementById("live").innerText = "🎧 جاري الاستماع...";
+      };
 
-      recognition.start();
-
-      let finalText = "";
-
-      recognition.onresult = function(event) {
-        let interim = '';
-        finalText = '';
-
+      recognition.onresult = function (event) {
+        let interim = '', finalText = '';
         for (let i = 0; i < event.results.length; ++i) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
@@ -80,7 +125,6 @@
             interim += transcript;
           }
         }
-
         document.getElementById("live").innerText = "🗣️ مباشر: " + interim;
         if (finalText) {
           document.getElementById("result").innerText = "✅ نهائي: " + finalText;
@@ -88,33 +132,76 @@
         }
       };
 
-      recognition.onerror = function(event) {
+      recognition.onerror = function (event) {
         document.getElementById("live").innerText = "❌ خطأ: " + event.error;
+        stopRecognition();
       };
 
-      recognition.onend = function() {
-        document.getElementById("live").innerText += "\n📴 انتهى الاستماع.";
+      recognition.onend = function () {
+        stopRecognition();
+        document.getElementById("live").innerText += "\\n📴 انتهى الاستماع.";
       };
+
+      recognition.start();
     }
 
-    // ✅ تحليل النص الصوتي وتحديث الحقول
+    function stopRecognition() {
+      if (recognition) {
+        recognition.stop();
+      }
+      isListening = false;
+      document.getElementById("micBtn").classList.remove("active");
+      updateVolumeLevel(0);
+    }
+
+    document.getElementById("micBtn").addEventListener("click", function () {
+      if (!isListening) {
+        this.classList.add("active");
+        isListening = true;
+        startRecognition();
+      } else {
+        stopRecognition();
+      }
+    });
+
+    function speakText(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "ar-AE";
+      speechSynthesis.speak(utterance);
+    }
+
     function updateValuesFromSpeech(text) {
-      const fuelRegex = /(?:تعبئة|تم تعبئة|البترول|الوقود).*?(\d{2,4})\s?(?:كم|كيلو)?/i;
-      const carKmRegex = /(?:عداد|عداد السيارة).*?(\d{4,6})\s?(?:كم)?/i;
+      const fuelRegex = /(?:تعبئة|تم تعبئة|البترول|الوقود).*?(\\d{2,4})\\s?(?:كم|كيلو)?/i;
+      const carKmRegex = /(?:عداد|عداد السيارة).*?(\\d{4,6})\\s?(?:كم)?/i;
 
       const fuelMatch = text.match(fuelRegex);
       const carMatch = text.match(carKmRegex);
 
       if (fuelMatch && fuelMatch[1]) {
-        document.getElementById("fuelLeft").value = fuelMatch[1];
+        const fuelValue = fuelMatch[1];
+        speakText("سيتم تحديث المسافة المتبقية إلى " + fuelValue + " كيلومتر");
+        document.getElementById("fuelLeft").value = fuelValue;
       }
 
       if (carMatch && carMatch[1]) {
-        document.getElementById("carKm").value = carMatch[1];
+        const carValue = carMatch[1];
+        speakText("سيتم تحديث عداد السيارة إلى " + carValue + " كيلومتر");
+        document.getElementById("carKm").value = carValue;
       }
 
       saveToLocalStorage();
     }
+
+    function updateVolumeLevel(level) {
+      document.getElementById("volumeLevel").style.width = level + "%";
+    }
+
+    setInterval(() => {
+      if (isListening) {
+        const randomLevel = Math.floor(Math.random() * 100);
+        updateVolumeLevel(randomLevel);
+      }
+    }, 200);
   </script>
 
 </body>
