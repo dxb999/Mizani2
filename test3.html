@@ -1,149 +1,59 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ميزاني - التتبع التلقائي</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body { font-family: Tahoma; margin:0; padding:20px; background:#f0f0f0; }
-    #status, #metrics { margin:20px 0; font-size:18px; }
-    #popupNotice {
-      display:none; position:fixed; top:20px; right:20px;
-      background:#0a3e7d; color:white; padding:15px; border-radius:10px;
-      z-index:9999; box-shadow:0 0 10px rgba(0,0,0,0.2); font-size:16px;
-    }
-    #map { height:300px; border-radius:10px; }
-    #logs { max-height:200px; overflow:auto; background:#fff; padding:10px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-    .log-item { margin-bottom:10px; border-bottom:1px solid #ddd; padding-bottom:8px; }
-  </style>
+  <title>Voice to Text (Whisper)</title>
 </head>
 <body>
+  <h2>🎤 Say something in English (e.g. "Fuel is now 500 kilometers")</h2>
+  <button onclick="record()">🎙️ Start Recording</button>
+  <p id="output">Waiting...</p>
 
-<h2>ميزاني – التتبع التلقائي</h2>
-<div id="popupNotice">🚗 تم اكتشاف حركة! التتبع بدأ...</div>
-<div id="status">⏳ في انتظار الحركة...</div>
-<div id="metrics">
-  ⏱️ المدة: <span id="time">0 س 0 د 0 ث</span> |
-  🚗 السرعة الحالية: <span id="speed">0</span> كم/س |
-  📏 المسافة المقطوعة: <span id="distance">0.00</span> كم
-</div>
-<div id="map"></div>
+  <script>
+    function record() {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
 
-<h3>📊 سجل الرحلات السابقة</h3>
-<div id="logs"></div>
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => {
+          const audioBlob = new Blob(chunks, { type: "audio/webm" });
+          transcribeAudio(audioBlob);
+        };
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-let lastLat=null, lastLon=null, lastMoveTime=null;
-let isTracking=false, startTime=null, totalDist=0;
-let map, polyline, tripLogs = [];
+        recorder.start();
+        document.getElementById("output").innerText = "🎙️ Recording...";
 
-// الشجرة الأساسية لمراقبة الحركة وخريطة Leaflet
-function initMap() {
-  map = L.map('map').setView([25.276987,55.296249],13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  polyline = L.polyline([], {color:'blue'}).addTo(map);
-}
-
-function showPopup(msg) {
-  const el = document.getElementById('popupNotice');
-  el.textContent = msg; el.style.display='block';
-  setTimeout(()=> el.style.display='none', 5000);
-}
-
-function haversine(a,b,c,d){
-  const R=6371, dLat=(c - a)*Math.PI/180, dLon=(d - b)*Math.PI/180;
-  const A = Math.sin(dLat/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
-}
-
-function formatTime(ms){
-  let s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60);
-  s%=60; return `${h} س ${m} د ${s} ث`;
-}
-
-function updateMetrics(position) {
-  const {latitude, longitude, speed: s} = position.coords;
-  document.getElementById('speed').textContent = s ? (s*3.6).toFixed(1) : '0';
-}
-
-function endTrip(position){
-  const now = new Date();
-  const duration = now - startTime;
-  const log = {
-    start: startTime,
-    durationMs: duration,
-    distance: totalDist.toFixed(2),
-    coords: polyline.getLatLngs()
-  };
-  tripLogs.push(log);
-  renderLogs();
-}
-
-function renderLogs(){
-  const container = document.getElementById('logs');
-  container.innerHTML = '';
-  tripLogs.forEach((l,i)=>{
-    const div = document.createElement('div');
-    div.className = 'log-item';
-    div.innerHTML = `<strong>رحلة #${i+1}</strong><br>المسافة: ${l.distance} كم – المدة: ${formatTime(l.durationMs)}`;
-    container.appendChild(div);
-  });
-}
-
-function startTracking(pos) {
-  isTracking = true;
-  totalDist = 0;
-  startTime = new Date();
-  polyline.setLatLngs([]);
-  showPopup('🚗 تم اكتشاف حركة! التتبع بدأ...');
-  document.getElementById('status').textContent = '✅ التتبع نشط';
-  initMap();
-  polyline.addLatLng([pos.coords.latitude, pos.coords.longitude]);
-}
-
-function stopTracking(){
-  if (!isTracking) return;
-  isTracking = false;
-  document.getElementById('status').textContent = '⏹️ التتبع متوقف';
-  endTrip();
-}
-
-navigator.geolocation.watchPosition(pos=>{
-  const {latitude, longitude, speed} = pos.coords;
-  const now = Date.now();
-
-  if (!isTracking) {
-    if (lastLat!==null){
-      const d = haversine(lastLat,lastLon,latitude,longitude);
-      if (d>0.03 && now - (lastMoveTime||now) < 10000) {
-        startTracking(pos);
-      }
-      lastMoveTime = now;
+        setTimeout(() => {
+          recorder.stop();
+          document.getElementById("output").innerText = "⏳ Processing...";
+        }, 10000);
+      });
     }
-  } else {
-    polyline.addLatLng([latitude,longitude]);
-    map.panTo([latitude,longitude]);
-    if (lastLat!==null){
-      const d = haversine(lastLat,lastLon,latitude,longitude);
-      if (d>0) totalDist += d;
+
+    function transcribeAudio(audioBlob) {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "voice.webm");
+      formData.append("model", "whisper-1");
+      formData.append("language", "en"); // English
+
+      fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          Authorization: "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" // استبدل بمفتاحك
+        },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("output").innerText = data.text || "❌ No text returned.";
+        console.log("FULL:", data);
+      })
+      .catch(err => {
+        document.getElementById("output").innerText = "❌ Error";
+        console.error(err);
+      });
     }
-    document.getElementById('distance').textContent = totalDist.toFixed(2);
-    updateMetrics(pos);
-    const elapsed = new Date() - startTime;
-    document.getElementById('time').textContent = formatTime(elapsed);
-    clearTimeout(window.autoStop);
-    window.autoStop = setTimeout(stopTracking, 60000);
-  }
-
-  lastLat = latitude;
-  lastLon = longitude;
-}, err=>{
-  document.getElementById('status').textContent = '📵 فشل في تحديد الموقع';
-}, {enableHighAccuracy:true, maximumAge:1000, timeout:5000});
-
-initMap();
-</script>
+  </script>
 </body>
 </html>
