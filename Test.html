@@ -904,7 +904,7 @@ function showLastMaint(sectionKey) {
 let recorder;
 
 // ✅ بدء التسجيل بعد أول تفاعل مع الصفحة (لمس أو ضغط)
-window.addEventListener("touchstart", startVoiceOnce, { once: true });
+window.addEventListener("touchstart", startVoiceLoop, { once: true });
 
 function startVoiceOnce() {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -942,10 +942,10 @@ function transcribeAudio(audioBlob) {
     showPopup("📋 النص المستخرج: " + text);
     extractFuelValue(text); // تحليل النص وتحديث العداد
   })
-  .catch(err => {
-    console.error("خطأ:", err);
-    showPopup("❌ فشل تحليل الصوت");
-  });
+.catch(err => {
+  showPopup("❌ فشل تحليل الصوت");
+  showErrorOnPage(err); // عرض الخطأ على الصفحة
+});
 }
   function extractFuelValue(text) {
   const regex = /(?:تعبئة|تعبئه|تم تعبئة|تم تعبئه)?(?:.*)?(?:البترول|الوقود)?.*?(\\d{2,4})\\s?(?:كم|كيلو|كيلومتر)?/i;
@@ -962,6 +962,50 @@ function transcribeAudio(audioBlob) {
       showPopup(`✅ تم تحديث المسافة بالبترول إلى ${value} كم`);
     }
   }
+}
+
+ function showErrorOnPage(err) {
+  const errorDiv = document.createElement("div");
+  errorDiv.style.background = "#f8d7da";
+  errorDiv.style.color = "#721c24";
+  errorDiv.style.padding = "10px";
+  errorDiv.style.margin = "20px";
+  errorDiv.style.border = "1px solid #f5c6cb";
+  errorDiv.style.borderRadius = "8px";
+  errorDiv.innerText = "خطأ: " + err;
+  document.body.prepend(errorDiv);
+} 
+  let audioLoopActive = false;
+let recorder;
+let audioChunks = [];
+
+function startVoiceLoop() {
+  if (audioLoopActive) return; // منع التكرار
+  audioLoopActive = true;
+  loopVoiceRecognition();
+}
+
+// ✅ حلقة الاستماع المتكررة
+function loopVoiceRecognition() {
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    recorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    recorder.ondataavailable = e => audioChunks.push(e.data);
+    recorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      transcribeAudio(audioBlob); // تحليل التسجيل
+      setTimeout(loopVoiceRecognition, 20000); // ⏱️ إعادة التسجيل بعد 20 ثانية
+    };
+
+    recorder.start();
+    showPopup("🎤 بدأ التسجيل الصوتي...");
+
+    setTimeout(() => {
+      recorder.stop();
+      showPopup("📝 جارٍ تحليل الصوت...");
+    }, 10000); // مدة التسجيل 10 ثوانٍ
+  });
 }
 </script>
 </body>
