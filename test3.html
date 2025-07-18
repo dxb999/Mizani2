@@ -1,59 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>Voice to Text (Whisper)</title>
+  <title>Voice to Text WAV</title>
 </head>
 <body>
-  <h2>🎤 Say something in English (e.g. "Fuel is now 500 kilometers")</h2>
+  <h2>🎙️ Say: "I refueled the car to 500 kilometers"</h2>
   <button onclick="record()">🎙️ Start Recording</button>
   <p id="output">Waiting...</p>
 
   <script>
     function record() {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        const recorder = new MediaRecorder(stream);
-        const chunks = [];
+        const audioContext = new AudioContext();
+        const mediaStreamSource = audioContext.createMediaStreamSource(stream);
+        const recorder = new Recorder(mediaStreamSource, { numChannels: 1 });
 
-        recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = () => {
-          const audioBlob = new Blob(chunks, { type: "audio/webm" });
-          transcribeAudio(audioBlob);
-        };
-
-        recorder.start();
-        document.getElementById("output").innerText = "🎙️ Recording...";
+        recorder.record();
+        document.getElementById("output").innerText = "Recording...";
 
         setTimeout(() => {
           recorder.stop();
-          document.getElementById("output").innerText = "⏳ Processing...";
-        }, 10000);
+          recorder.exportWAV(blob => {
+            transcribeAudio(blob);
+          });
+        }, 8000); // تسجيل 8 ثواني
       });
     }
 
     function transcribeAudio(audioBlob) {
       const formData = new FormData();
-      formData.append("file", audioBlob, "voice.webm");
+      formData.append("file", audioBlob, "voice.wav");
       formData.append("model", "whisper-1");
-      formData.append("language", "en"); // English
+      formData.append("language", "en");
 
       fetch("https://api.openai.com/v1/audio/transcriptions", {
         method: "POST",
         headers: {
-          Authorization: "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" // استبدل بمفتاحك
+          Authorization: "Bearer YOUR_API_KEY"
         },
         body: formData
       })
       .then(res => res.json())
       .then(data => {
         document.getElementById("output").innerText = data.text || "❌ No text returned.";
-        console.log("FULL:", data);
+        console.log("Response:", data);
       })
       .catch(err => {
-        document.getElementById("output").innerText = "❌ Error";
+        document.getElementById("output").innerText = "❌ Error during transcription.";
         console.error(err);
       });
     }
   </script>
+
+  <!-- إضافة مكتبة تسجيل WAV -->
+  <script src="https://cdn.jsdelivr.net/gh/mattdiamond/Recorderjs/recorder.js"></script>
 </body>
 </html>
