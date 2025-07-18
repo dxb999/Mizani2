@@ -948,7 +948,7 @@ function transcribeAudio(audioBlob) {
 });
 }
   function extractFuelValue(text) {
-  const regex = /(?:تعبئة|تعبئه|تم تعبئة|تم تعبئه)?(?:.*)?(?:البترول|الوقود)?.*?(\\d{2,4})\\s?(?:كم|كيلو|كيلومتر)?/i;
+  const regex = /(?:تعبئة|تعبئه|تم تعبئة|تم تعبئه)?(?:.*)?(?:البترول|الوقود)?.*?(\d{2,4})\s?(?:كم|كيلو|كيلومتر)?/i;
   const match = text.match(regex);
   if (match && match[1]) {
     const value = parseInt(match[1]);
