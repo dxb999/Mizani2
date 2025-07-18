@@ -1,118 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>Voice to Text with Whisper (WAV)</title>
+  <title>🎤 التعرف على الصوت مباشرة</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    #output, #status { margin-top: 20px; padding: 10px; border-radius: 5px; }
-    #output { background: #f0f8ff; }
-    #status { background: #e8e8e8; font-weight: bold; }
-    canvas { border: 1px solid #ccc; margin-top: 10px; }
+    body { font-family: Arial; padding: 20px; text-align: center; }
+    #result { margin-top: 20px; font-size: 1.2em; background: #f5f5f5; padding: 10px; border-radius: 10px; }
+    button { padding: 10px 20px; font-size: 1em; }
   </style>
 </head>
 <body>
-  <h2>🎙️ Say something like: "I refueled the car to 500 kilometers"</h2>
-  <button onclick="record()">🎙️ Start Recording</button>
-  <p id="status">Status: Idle</p>
-  <p id="output">Waiting for speech...</p>
-  <canvas id="levelMeter" width="300" height="30"></canvas>
-
-  <!-- مكتبة تسجيل WAV -->
-  <script src="https://cdn.jsdelivr.net/gh/mattdiamond/Recorderjs/recorder.js"></script>
+  <h2>🎙️ اضغط للبدء بالتحدث</h2>
+  <button onclick="startRecognition()">🎤 بدء التحدث</button>
+  <div id="result">⏳ لم يتم البدء بعد...</div>
 
   <script>
-    let audioContext, recorder, analyser, dataArray, animationId;
+    function startRecognition() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "ar-AE"; // أو "en-US" للإنجليزية
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
 
-    function record() {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        document.getElementById("status").innerText = "Status: 🎙️ Microphone accessed successfully";
+      recognition.start();
 
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioContext.createMediaStreamSource(stream);
+      document.getElementById("result").innerText = "🎧 جاري الاستماع...";
 
-        // إعداد المسجل
-        recorder = new Recorder(source, { numChannels: 1 });
-        recorder.record();
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById("result").innerText = "✅ تم التعرف: " + transcript;
+      };
 
-        // إعداد تحليل مستوى الصوت
-        analyser = audioContext.createAnalyser();
-        source.connect(analyser);
-        analyser.fftSize = 256;
-        const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-
-        drawLevelMeter();
-
-        document.getElementById("status").innerText = "Status: 🔴 Recording...";
-        document.getElementById("output").innerText = "Listening... Please speak clearly.";
-
-        setTimeout(() => {
-          recorder.stop();
-          cancelAnimationFrame(animationId);
-          document.getElementById("status").innerText = "Status: ⏳ Processing recording...";
-          recorder.exportWAV(blob => {
-            transcribeAudio(blob);
-          });
-        }, 8000); // تسجيل لمدة 8 ثواني
-      }).catch(err => {
-        document.getElementById("status").innerText = "Status: ❌ Microphone access failed.";
-        console.error("Mic error:", err);
-      });
-    }
-
-    function drawLevelMeter() {
-      const canvas = document.getElementById("levelMeter");
-      const ctx = canvas.getContext("2d");
-
-      function draw() {
-        animationId = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        let average = sum / dataArray.length;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#4caf50";
-        ctx.fillRect(0, 0, average * 3, canvas.height);
-      }
-
-      draw();
-    }
-
-    function transcribeAudio(audioBlob) {
-      const formData = new FormData();
-      formData.append("file", audioBlob, "voice.wav");
-      formData.append("model", "whisper-1");
-      formData.append("language", "en");
-
-      document.getElementById("status").innerText = "Status: 🔄 Sending to OpenAI Whisper API...";
-
-      fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: {
-          Authorization: "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"  // 🔑 ضع مفتاحك هنا
-        },
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.text) {
-          document.getElementById("output").innerText = "📝 Transcription: " + data.text;
-          document.getElementById("status").innerText = "Status: ✅ Transcription successful";
-        } else {
-          document.getElementById("output").innerText = "❌ No text was returned from the API.";
-          document.getElementById("status").innerText = "Status: ⚠️ API returned no transcription";
-        }
-      })
-      .catch(err => {
-        document.getElementById("output").innerText = "❌ Error: " + err.message;
-        document.getElementById("status").innerText = "Status: ❌ Failed to contact Whisper API";
-        console.error("API error:", err);
-      });
+      recognition.onerror = function(event) {
+        document.getElementById("result").innerText = "❌ حدث خطأ: " + event.error;
+      };
     }
   </script>
 </body>
